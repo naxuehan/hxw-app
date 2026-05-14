@@ -1,0 +1,1805 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>好想玩手工创作 - 计时计费系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        .header .subtitle {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .stats-bar {
+            max-width: 1400px;
+            margin: 0 auto 20px;
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .stat-item {
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            padding: 10px 20px;
+            border-radius: 12px;
+            color: white;
+            font-weight: 600;
+        }
+
+        .toolbar {
+            max-width: 1400px;
+            margin: 0 auto 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn:hover { transform: translateY(-2px); }
+        .btn-primary { background: white; color: #667eea; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .btn-danger { background: #ff6b6b; color: white; }
+        .btn-success { background: #51cf66; color: white; }
+        .btn-warning { background: #ffd43b; color: #333; }
+        .btn-info { background: #339af0; color: white; }
+
+        .zones-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(900px, 1fr));
+            gap: 20px;
+        }
+        .zone-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+            border-top: 5px solid var(--zone-color, #667eea);
+        }
+        .zone-card:hover { transform: translateY(-2px); }
+        
+        .zone-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        .zone-title {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: var(--zone-color, #495057);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .zone-title input {
+            font-size: 1em;
+            font-weight: 700;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            padding: 4px 10px;
+            color: var(--zone-color, #495057);
+            width: 200px;
+        }
+        .zone-title input:focus {
+            outline: none;
+            border-color: var(--zone-color, #667eea);
+        }
+        .zone-actions { display: flex; gap: 8px; }
+        .zone-actions .btn { padding: 6px 12px; font-size: 12px; }
+
+        .empty-seats {
+            text-align: center;
+            padding: 40px;
+            color: #adb5bd;
+            font-size: 0.95em;
+        }
+
+        .seats-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 10px;
+        }
+        .seat-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 12px 6px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            position: relative;
+        }
+        .seat-card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .seat-card.idle { border-color: #dee2e6; background: #f8f9fa; }
+        .seat-card.active { border-color: #339af0; background: #e7f5ff; }
+        .seat-card.all-day { border-color: #51cf66; background: #e6fcf5; }
+        .seat-card.paused {
+            border-color: #fab005;
+            background: #fff9db;
+        }
+        .seat-card.paused .seat-timer { color: #f08c00; }
+        .seat-card.paused .seat-status { background: #fff3bf; color: #e67700; }
+        .seat-card.paused.overtime-paused {
+            border-color: #ff6b6b;
+            background: #fff5f5;
+            animation: pulse 2s infinite;
+        }
+        .seat-card.paused.overtime-paused .seat-timer { color: #ff6b6b; }
+        .seat-card.paused.overtime-paused .seat-status { background: #ffc9c9; color: #c92a2a; }
+        .seat-card.overtime {
+            border-color: #ff6b6b;
+            background: #fff5f5;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.4); }
+            50% { box-shadow: 0 0 0 10px rgba(255, 107, 107, 0); }
+        }
+        
+        .seat-number {
+            font-size: 0.8em;
+            font-weight: 600;
+            color: #868e96;
+            margin-bottom: 4px;
+        }
+        .seat-timer {
+            font-size: 1.4em;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            margin-bottom: 2px;
+        }
+        .seat-card.idle .seat-timer { color: #adb5bd; }
+        .seat-card.active .seat-timer { color: #339af0; }
+        .seat-card.all-day .seat-timer { color: #40c057; }
+        .seat-card.overtime .seat-timer { color: #ff6b6b; }
+        
+        .seat-cumulative {
+            font-size: 0.72em;
+            font-weight: 600;
+            color: #868e96;
+            margin-bottom: 2px;
+            font-variant-numeric: tabular-nums;
+        }
+        .seat-card.active .seat-cumulative,
+        .seat-card.all-day .seat-cumulative,
+        .seat-card.paused .seat-cumulative,
+        .seat-card.overtime .seat-cumulative,
+        .seat-card.paused.overtime-paused .seat-cumulative { color: #495057; }
+        
+        .seat-extra {
+            font-size: 0.72em;
+            font-weight: 600;
+            color: #868e96;
+            margin-bottom: 2px;
+            font-variant-numeric: tabular-nums;
+        }
+        .seat-card .seat-extra { display: none; }
+        .seat-card.active .seat-extra,
+        .seat-card.paused .seat-extra,
+        .seat-card.overtime .seat-extra,
+        .seat-card.all-day .seat-extra {
+            display: block;
+            color: #e64980;
+        }
+        
+        .seat-cost {
+            font-size: 0.78em;
+            font-weight: 700;
+            color: #e64980;
+            margin-top: 2px;
+            font-variant-numeric: tabular-nums;
+        }
+        .seat-card.idle .seat-cost { display: none; }
+
+        .seat-status {
+            font-size: 0.7em;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-top: 2px;
+        }
+        .seat-card.idle .seat-status { background: #e9ecef; color: #868e96; }
+        .seat-card.active .seat-status { background: #d0ebff; color: #1971c2; }
+        .seat-card.all-day .seat-status { background: #d3f9d8; color: #2b8a3e; }
+        .seat-card.overtime .seat-status { background: #ffc9c9; color: #c92a2a; }
+
+        /* 弹窗 */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+        .modal-overlay.show { display: flex; }
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            width: 90%;
+            max-width: 480px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: modalIn 0.3s ease;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.9) translateY(20px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .modal-header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        .modal-header h2 {
+            font-size: 1.5em;
+            color: #495057;
+            margin-bottom: 5px;
+        }
+        .modal-header .modal-subtitle {
+            color: #868e96;
+            font-size: 0.9em;
+        }
+
+        .timer-display-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .timer-card {
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        .timer-card.primary {
+            border: 2px solid #e9ecef;
+            background: #f8f9fa;
+        }
+        .timer-card.primary.active-state { border-color: #339af0; background: #e7f5ff; }
+        .timer-card.primary.all-day-state { border-color: #51cf66; background: #e6fcf5; }
+        .timer-card.primary.paused-state { border-color: #fab005; background: #fff9db; }
+        .timer-card.primary.overtime-paused-state { border-color: #ff6b6b; background: #fff5f5; }
+        .timer-card.primary.overtime-state { border-color: #ff6b6b; background: #fff5f5; }
+        .timer-card.secondary {
+            border: 2px solid #e9ecef;
+            background: #f8f9fa;
+        }
+        .timer-card.extra-state {
+            border: 2px solid #f06595;
+            background: #fff0f6;
+            grid-column: 1 / -1;
+        }
+        .timer-card.extra-state .timer-card-value { color: #e64980; }
+        .timer-card.extra-state .timer-card-label { color: #d6336c; }
+        .timer-card.cost-state {
+            border: 2px solid #f06595;
+            background: #fff0f6;
+            grid-column: 1 / -1;
+        }
+        .timer-card.cost-state .timer-card-value { color: #e64980; }
+        .timer-card.cost-state .timer-card-label { color: #d6336c; }
+        
+        .timer-card-label {
+            font-size: 0.75em;
+            font-weight: 600;
+            color: #868e96;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .timer-card-value {
+            font-size: 1.6em;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            color: #495057;
+        }
+        .timer-card.primary.active-state .timer-card-value { color: #339af0; }
+        .timer-card.primary.all-day-state .timer-card-value { color: #40c057; }
+        .timer-card.primary.paused-state .timer-card-value { color: #f08c00; }
+        .timer-card.primary.overtime-paused-state .timer-card-value { color: #ff6b6b; }
+        .timer-card.primary.overtime-state .timer-card-value { color: #ff6b6b; }
+
+        .time-presets {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .preset-btn {
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            background: white;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+            color: #495057;
+        }
+        .preset-btn:hover { border-color: #667eea; color: #667eea; background: #f8f9ff; }
+        .preset-btn.selected { border-color: #667eea; background: #667eea; color: white; }
+        
+        .custom-time-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .custom-time-row input, .custom-time-row select {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            font-size: 16px;
+            text-align: center;
+            font-weight: 600;
+        }
+        .custom-time-row input:focus, .custom-time-row select:focus { outline: none; border-color: #667eea; }
+        .custom-time-row span { font-size: 14px; color: #868e96; white-space: nowrap; }
+        .custom-time-row label {
+            font-size: 14px;
+            color: #495057;
+            font-weight: 600;
+            min-width: 120px;
+            text-align: left;
+        }
+
+        .modal-section-title {
+            font-size: 0.85em;
+            font-weight: 600;
+            color: #868e96;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .main-action-btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .main-action-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        .main-action-btn:active { transform: translateY(0); }
+        
+        .btn-start { background: linear-gradient(135deg, #51cf66 0%, #40c057 100%); color: white; }
+        .btn-pause { background: linear-gradient(135deg, #ffd43b 0%, #fcc419 100%); color: #333; }
+        .btn-continue { background: linear-gradient(135deg, #339af0 0%, #228be6 100%); color: white; }
+
+        .extra-time-section {
+            border-top: 1px solid #f0f0f0;
+            padding-top: 15px;
+            margin-top: 15px;
+            margin-bottom: 15px;
+        }
+        .extra-time-toggle {
+            width: 100%;
+            padding: 10px;
+            border: 2px dashed #f06595;
+            border-radius: 10px;
+            background: #fff0f6;
+            color: #d6336c;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+        .extra-time-toggle:hover {
+            background: #fcc2d7;
+            border-color: #e64980;
+        }
+        .extra-time-panel {
+            display: none;
+        }
+        .extra-time-panel.show {
+            display: block;
+        }
+        .extra-time-presets {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .extra-preset-btn {
+            padding: 8px;
+            border: 2px solid #fcc2d7;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s;
+            color: #d6336c;
+        }
+        .extra-preset-btn:hover {
+            border-color: #e64980;
+            background: #fff0f6;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .modal-footer .btn {
+            flex: 1;
+            justify-content: center;
+            padding: 12px;
+        }
+
+        /* 导出面板 */
+        .export-panel {
+            max-width: 1400px;
+            margin: 0 auto 20px;
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 20px;
+            color: white;
+        }
+        .export-panel h3 {
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+        .export-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        .export-info {
+            font-size: 0.85em;
+            opacity: 0.9;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        }
+        .save-dir-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255,255,255,0.2);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.85em;
+        }
+        .save-dir-status.active { color: #51cf66; }
+        .save-dir-status.inactive { color: #ffd43b; }
+
+        .notification {
+            position: fixed;
+            top: 20px; right: 20px;
+            background: white;
+            padding: 15px 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            display: none;
+            z-index: 2000;
+            animation: slideIn 0.3s ease;
+            border-left: 4px solid #ff6b6b;
+        }
+        .notification.show { display: block; }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .notification-title { font-weight: 700; color: #c92a2a; margin-bottom: 4px; }
+        .notification-text { color: #495057; font-size: 14px; }
+
+        .sound-toggle {
+            position: fixed;
+            bottom: 20px; right: 20px;
+            background: white;
+            border: none;
+            border-radius: 50%;
+            width: 50px; height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            font-size: 20px;
+            z-index: 50;
+        }
+
+        @media (max-width: 1200px) {
+            .seats-grid { grid-template-columns: repeat(4, 1fr); }
+            .zones-container { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 768px) {
+            .zones-container { grid-template-columns: 1fr; }
+            .seats-grid { grid-template-columns: repeat(2, 1fr); }
+            .header h1 { font-size: 1.8em; }
+            .timer-display-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎨 好想玩手工创作</h1>
+        <p class="subtitle">分区管理 · 八座一排 · 超时提醒 · 加时支持 · 自动备份 · 计费统计</p>
+    </div>
+
+    <div class="stats-bar">
+        <div class="stat-item"><span>总座位:</span><span id="totalSeats">0</span></div>
+        <div class="stat-item"><span>使用中:</span><span id="activeSeats">0</span></div>
+        <div class="stat-item"><span>已超时:</span><span id="overtimeSeats">0</span></div>
+        <div class="stat-item"><span>全天:</span><span id="allDaySeats">0</span></div>
+        <div class="stat-item"><span>空闲:</span><span id="idleSeats">0</span></div>
+    </div>
+
+    <div class="toolbar">
+        <button class="btn btn-primary" onclick="addZone()">➕ 添加分区</button>
+        <button class="btn btn-warning" onclick="openPricingModal()">💰 价格设置</button>
+        <button class="btn btn-success" onclick="saveData()">💾 保存数据</button>
+        <button class="btn btn-danger" onclick="clearAll()">🗑️ 全部重置</button>
+    </div>
+
+    <div class="export-panel">
+        <h3>📊 统计与导出</h3>
+        <div class="export-grid">
+            <button class="btn btn-primary" onclick="exportCurrentStats()">📋 导出当前统计</button>
+            <button class="btn btn-info" onclick="exportThreeDaysHistory()">📁 导出三天历史记录</button>
+            <button class="btn btn-warning" onclick="setupSaveDirectory()">📁 设置自动保存目录</button>
+            <button class="btn btn-success" onclick="manualBackupNow()">💾 立即备份</button>
+        </div>
+        <div class="export-info">
+            <span id="saveDirStatus" class="save-dir-status inactive">⚠️ 未设置本地保存目录（点击"设置自动保存目录"选择F盘）</span>
+            <span style="margin-left:15px;">自动保存间隔：10分钟 | 本地保留：3天</span>
+            <span style="margin-left:15px;" id="lastBackupTime">上次备份：--</span>
+        </div>
+    </div>
+
+    <div class="zones-container" id="zonesContainer"></div>
+
+    <!-- 座位操作弹窗 -->
+    <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2 id="modalTitle">座位设置</h2>
+                <div class="modal-subtitle" id="modalSubtitle">选择计时方式</div>
+            </div>
+
+            <div class="timer-display-grid" id="timerDisplay" style="display:none;">
+                <div class="timer-card primary" id="primaryCard">
+                    <div class="timer-card-label" id="primaryLabel">剩余时间</div>
+                    <div class="timer-card-value" id="primaryValue">--:--</div>
+                </div>
+                <div class="timer-card secondary">
+                    <div class="timer-card-label">累计时长</div>
+                    <div class="timer-card-value" id="cumulativeValue" style="color:#495057;">00:00:00</div>
+                </div>
+                <div class="timer-card extra-state" id="extraCard" style="display:none;">
+                    <div class="timer-card-label">⏱️ 加时时长</div>
+                    <div class="timer-card-value" id="extraValue">00:00:00</div>
+                </div>
+                <div class="timer-card cost-state" id="costCard" style="display:none;">
+                    <div class="timer-card-label">💰 当前费用</div>
+                    <div class="timer-card-value" id="costValue">¥0.00</div>
+                </div>
+            </div>
+
+            <div id="timeSelection">
+                <div class="modal-section-title">快速选择</div>
+                <div class="time-presets">
+                    <button class="preset-btn" onclick="selectPreset(60, this)">1小时</button>
+                    <button class="preset-btn" onclick="selectPreset(120, this)">2小时</button>
+                    <button class="preset-btn" onclick="selectPreset(480, this)">全天</button>
+                    <button class="preset-btn" onclick="selectPreset(30, this)">30分钟</button>
+                </div>
+                <div class="modal-section-title">自定义时长</div>
+                <div class="custom-time-row">
+                    <input type="number" id="customMinutes" placeholder="输入分钟" min="1" max="720">
+                    <span>分钟</span>
+                </div>
+            </div>
+
+            <button class="main-action-btn" id="mainActionBtn" onclick="handleMainAction()">
+                ▶️ 开始计时
+            </button>
+
+            <div class="extra-time-section" id="extraTimeSection" style="display:none;">
+                <button class="extra-time-toggle" id="extraTimeToggle" onclick="toggleExtraPanel()">
+                    ⏱️ 加时
+                </button>
+                <div class="extra-time-panel" id="extraTimePanel">
+                    <div class="modal-section-title">选择加时时长</div>
+                    <div class="extra-time-presets">
+                        <button class="extra-preset-btn" onclick="addExtraTime(30)">+30分</button>
+                        <button class="extra-preset-btn" onclick="addExtraTime(60)">+1小时</button>
+                        <button class="extra-preset-btn" onclick="addExtraTime(120)">+2小时</button>
+                    </div>
+                    <div class="custom-time-row">
+                        <input type="number" id="extraCustomMinutes" placeholder="分钟" min="1">
+                        <span>分钟</span>
+                        <button class="btn btn-success" onclick="addCustomExtraTime()">确认加时</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-danger" id="endBtn" onclick="endTimer()" style="display:none;">
+                    ⏹️ 结束计时
+                </button>
+                <button class="btn btn-primary" onclick="closeModal()">关闭</button>
+                <button class="btn btn-danger" id="deleteSeatBtn" onclick="deleteCurrentSeat()" style="display:none;">
+                    🗑️ 删除座位
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 价格设置弹窗 -->
+    <div class="modal-overlay" id="pricingModalOverlay" onclick="closePricingModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2>💰 价格设置</h2>
+                <div class="modal-subtitle">设置计费标准（填0表示不显示费用）</div>
+            </div>
+            <div style="margin-bottom:15px;">
+                <div class="modal-section-title">小时计费</div>
+                <div class="custom-time-row">
+                    <input type="number" id="hourlyRate" placeholder="例如：30" min="0" step="0.1">
+                    <span>元/小时</span>
+                </div>
+            </div>
+            <div style="margin-bottom:15px;">
+                <div class="modal-section-title">全天套餐</div>
+                <div class="custom-time-row">
+                    <input type="number" id="allDayRate" placeholder="例如：100" min="0" step="0.1">
+                    <span>元/天</span>
+                </div>
+            </div>
+            <div style="margin-bottom:20px;">
+                <div class="modal-section-title">计费精度</div>
+                <div class="time-presets">
+                    <button class="preset-btn" id="prec-hour" onclick="setPrecision('hour', this)">按小时取整</button>
+                    <button class="preset-btn" id="prec-half" onclick="setPrecision('halfHour', this)">按半小时取整</button>
+                    <button class="preset-btn" id="prec-actual" onclick="setPrecision('actual', this)">按实际分钟</button>
+                </div>
+            </div>
+            <button class="main-action-btn btn-success" onclick="savePricing()">💾 保存设置</button>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="closePricingModal()" style="flex:1;">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <button class="sound-toggle" id="soundToggle" onclick="toggleSound()" title="开启/关闭提示音">🔇</button>
+
+    <div class="notification" id="notification">
+        <div class="notification-title">⏰ 超时提醒</div>
+        <div class="notification-text" id="notificationText"></div>
+    </div>
+
+    <script>
+        // ==================== 分区颜色配置 ====================
+        const ZONE_COLORS = [
+            { primary: '#667eea', light: '#e7f5ff' },   // 蓝紫
+            { primary: '#e64980', light: '#fff0f6' },   // 粉红
+            { primary: '#40c057', light: '#e6fcf5' },   // 绿色
+            { primary: '#fd7e14', light: '#fff4e6' },   // 橙色
+            { primary: '#15aabf', light: '#e3fafc' },     // 青色
+            { primary: '#be4bdb', light: '#f3d9fa' },   // 紫色
+            { primary: '#fa5252', light: '#fff5f5' },   // 红色
+            { primary: '#82c91e', light: '#f4fce3' },   // 黄绿
+        ];
+
+        function getZoneColor(index) {
+            return ZONE_COLORS[index % ZONE_COLORS.length];
+        }
+
+        // ==================== 数据层 ====================
+        let zones = JSON.parse(localStorage.getItem('perlerZones')) || [];
+        let soundEnabled = false;
+        let audioContext = null;
+        let currentModalSeat = null;
+        let selectedPresetMinutes = null;
+        let saveDirectoryHandle = null;
+        let currentPrecision = 'hour';
+        const DB_NAME = 'HandCraftTimerDB';
+        const DB_VERSION = 1;
+        const STORE_NAME = 'records';
+        let db = null;
+
+        // ==================== 计费系统 ====================
+        function getPricing() {
+            return JSON.parse(localStorage.getItem('perlerPricing')) || { hourly: 0, allDay: 0, precision: 'hour' };
+        }
+
+        function calculateTimeCost(seconds, pricing) {
+            if (!pricing || pricing.hourly <= 0) return 0;
+            const hours = seconds / 3600;
+            let billableHours;
+            if (pricing.precision === 'hour') {
+                billableHours = Math.ceil(hours);
+            } else if (pricing.precision === 'halfHour') {
+                billableHours = Math.ceil(hours * 2) / 2;
+            } else {
+                billableHours = hours;
+            }
+            return billableHours * pricing.hourly;
+        }
+
+        function calculateCost(seat) {
+            const pricing = getPricing();
+            if (pricing.hourly <= 0 && pricing.allDay <= 0) return 0;
+            if (seat.status === 'idle') return 0;
+            
+            let cost = 0;
+            const cumulative = getDisplayCumulative(seat);
+            
+            if (seat.isAllDay) {
+                cost = pricing.allDay;
+                if (seat.extraTime > 0) cost += calculateTimeCost(seat.extraTime, pricing);
+            } else {
+                cost = calculateTimeCost(cumulative, pricing);
+                if (seat.extraTime > 0) cost += calculateTimeCost(seat.extraTime, pricing);
+            }
+            return Math.round(cost * 100) / 100;
+        }
+
+        function calculateCostFromSnapshot(s, pricing) {
+            if (!pricing) pricing = getPricing();
+            if (pricing.hourly <= 0 && pricing.allDay <= 0) return 0;
+            if (s.status === 'idle') return 0;
+            
+            let cost = 0;
+            if (s.isAllDay) {
+                cost = pricing.allDay;
+                if (s.extraTime > 0) cost += calculateTimeCost(s.extraTime, pricing);
+            } else {
+                cost = calculateTimeCost(s.cumulative || 0, pricing);
+                if (s.extraTime > 0) cost += calculateTimeCost(s.extraTime, pricing);
+            }
+            return Math.round(cost * 100) / 100;
+        }
+
+        function openPricingModal() {
+            const pricing = getPricing();
+            document.getElementById('hourlyRate').value = pricing.hourly || '';
+            document.getElementById('allDayRate').value = pricing.allDay || '';
+            currentPrecision = pricing.precision || 'hour';
+            updatePrecisionButtons();
+            document.getElementById('pricingModalOverlay').classList.add('show');
+        }
+
+        function closePricingModal(event) {
+            if (event && event.target !== document.getElementById('pricingModalOverlay')) return;
+            document.getElementById('pricingModalOverlay').classList.remove('show');
+        }
+
+        function setPrecision(precision, btn) {
+            currentPrecision = precision;
+            updatePrecisionButtons();
+        }
+
+        function updatePrecisionButtons() {
+            document.querySelectorAll('#pricingModalOverlay .preset-btn').forEach(b => b.classList.remove('selected'));
+            const map = { 'hour': 'prec-hour', 'halfHour': 'prec-half', 'actual': 'prec-actual' };
+            const id = map[currentPrecision];
+            if (id) document.getElementById(id).classList.add('selected');
+        }
+
+        function savePricing() {
+            const hourly = parseFloat(document.getElementById('hourlyRate').value) || 0;
+            const allDay = parseFloat(document.getElementById('allDayRate').value) || 0;
+            const pricing = { hourly, allDay, precision: currentPrecision };
+            localStorage.setItem('perlerPricing', JSON.stringify(pricing));
+            closePricingModal();
+            render();
+            alert('价格设置已保存！');
+        }
+
+        // ==================== CSV 转义 ====================
+        function escapeCSV(field) {
+            const str = String(field ?? '');
+            if (/[",\n\r]/.test(str)) {
+                return `"${str.replace(/"/g, '""')}"`;
+            }
+            return str;
+        }
+
+        // ==================== IndexedDB 初始化 ====================
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => { db = request.result; resolve(db); };
+                request.onupgradeneeded = (event) => {
+                    const database = event.target.result;
+                    if (!database.objectStoreNames.contains(STORE_NAME)) {
+                        const store = database.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+                        store.createIndex('timestamp', 'timestamp', { unique: false });
+                    }
+                };
+            });
+        }
+
+        async function saveRecordToDB(record) {
+            if (!db) await initDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                const request = store.add(record);
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function getRecordsFromDB(since) {
+            if (!db) await initDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, 'readonly');
+                const store = tx.objectStore(STORE_NAME);
+                const index = store.index('timestamp');
+                const range = IDBKeyRange.lowerBound(since);
+                const request = index.openCursor(range);
+                const records = [];
+                request.onsuccess = (event) => {
+                    const cursor = event.target.result;
+                    if (cursor) {
+                        records.push(cursor.value);
+                        cursor.continue();
+                    } else {
+                        resolve(records);
+                    }
+                };
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function cleanOldRecords() {
+            if (!db) await initDB();
+            const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                const index = store.index('timestamp');
+                const range = IDBKeyRange.upperBound(threeDaysAgo);
+                const request = index.openCursor(range);
+                let count = 0;
+                request.onsuccess = (event) => {
+                    const cursor = event.target.result;
+                    if (cursor) {
+                        store.delete(cursor.primaryKey);
+                        count++;
+                        cursor.continue();
+                    } else {
+                        resolve(count);
+                    }
+                };
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        // ==================== 自动保存逻辑 ====================
+        async function autoSaveRecord() {
+            const now = Date.now();
+            const record = {
+                timestamp: now,
+                dateStr: formatDateCN(now),
+                timeStr: formatTimeHM(now),
+                pricing: getPricing(),
+                zones: zones.map(z => ({
+                    zoneName: z.name,
+                    seats: z.seats.map(s => ({
+                        number: s.number,
+                        status: s.status,
+                        isAllDay: s.isAllDay || false,
+                        cumulative: getDisplayCumulative(s),
+                        extraTime: s.extraTime || 0,
+                        overtimeDuration: s.overtimeDuration || 0
+                    }))
+                }))
+            };
+
+            try {
+                await saveRecordToDB(record);
+                await cleanOldRecords();
+            } catch (e) {
+                console.error('IndexedDB保存失败:', e);
+            }
+
+            if (saveDirectoryHandle) {
+                try {
+                    await writeRecordToDirectory(record);
+                    updateLastBackupTime();
+                } catch (e) {
+                    console.error('本地目录保存失败:', e);
+                }
+            }
+
+            localStorage.setItem('perlerZones', JSON.stringify(zones));
+        }
+
+        async function writeRecordToDirectory(record) {
+            if (!saveDirectoryHandle) return;
+
+            const folderName = record.dateStr;
+            let dateDirHandle;
+            try {
+                dateDirHandle = await saveDirectoryHandle.getDirectoryHandle(folderName, { create: true });
+            } catch (e) {
+                throw e;
+            }
+
+            const fileName = `${record.timeStr.replace(':', '-')}.json`;
+            const fileHandle = await dateDirHandle.getFileHandle(fileName, { create: true });
+            const writable = await fileHandle.createWritable();
+            await writable.write(JSON.stringify(record, null, 2));
+            await writable.close();
+
+            const csvFileName = 'records.csv';
+            const csvHandle = await dateDirHandle.getFileHandle(csvFileName, { create: true });
+            const file = await csvHandle.getFile();
+            const existing = await file.text();
+            const csvLine = generateCSVLine(record);
+            const csvWritable = await csvHandle.createWritable();
+            if (!existing || existing.length === 0) {
+                await csvWritable.write('\ufeff' + csvLine);
+            } else {
+                await csvWritable.write(existing + '\n' + csvLine);
+            }
+            await csvWritable.close();
+        }
+
+        function generateCSVLine(record) {
+            const lines = [];
+            const pricing = record.pricing || getPricing();
+            record.zones.forEach(z => {
+                z.seats.forEach(s => {
+                    const cost = calculateCostFromSnapshot(s, pricing);
+                    lines.push([
+                        escapeCSV(record.dateStr),
+                        escapeCSV(record.timeStr),
+                        escapeCSV(z.zoneName),
+                        escapeCSV(s.number),
+                        escapeCSV(s.status === 'active' && s.isAllDay ? '全天' : (s.status === 'overtime' ? '超时' : s.status)),
+                        escapeCSV(s.isAllDay ? '是' : '否'),
+                        escapeCSV(formatFullTime(s.cumulative || 0)),
+                        escapeCSV(formatFullTime(s.extraTime || 0)),
+                        escapeCSV(formatFullTime(s.overtimeDuration || 0)),
+                        escapeCSV(cost.toFixed(2))
+                    ].join(','));
+                });
+            });
+            return lines.join('\n');
+        }
+
+        // ==================== 导出功能 ====================
+        function generateCurrentStatsCSV() {
+            const headers = ['分区', '座位号', '状态', '累计时长', '加时时长', '超时时长', '费用(元)', '备注'];
+            const rows = [];
+            zones.forEach(z => {
+                z.seats.forEach(s => {
+                    const cumulative = getDisplayCumulative(s);
+                    const cost = calculateCost(s);
+                    let remark = '';
+                    if (s.status === 'active' && s.isAllDay) remark = '全天模式';
+                    else if (s.status === 'overtime') remark = '已超时';
+                    else if (isOvertimePaused(s)) remark = '超时暂停';
+                    rows.push([
+                        escapeCSV(z.name),
+                        escapeCSV(s.number),
+                        escapeCSV(s.status === 'active' && s.isAllDay ? '全天' : (s.status === 'overtime' ? '超时' : s.status)),
+                        escapeCSV(formatFullTime(cumulative)),
+                        escapeCSV(formatFullTime(s.extraTime || 0)),
+                        escapeCSV(formatFullTime(s.overtimeDuration || 0)),
+                        escapeCSV(cost.toFixed(2)),
+                        escapeCSV(remark)
+                    ].join(','));
+                });
+            });
+            return [headers.join(','), ...rows].join('\n');
+        }
+
+        function exportCurrentStats() {
+            const csv = generateCurrentStatsCSV();
+            const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `统计报表_${formatDateCN(Date.now())}_${formatTimeHM(Date.now()).replace(':','-')}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        async function exportThreeDaysHistory() {
+            const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
+            const records = await getRecordsFromDB(threeDaysAgo);
+            if (records.length === 0) {
+                alert('近三天暂无历史记录');
+                return;
+            }
+
+            let allCSV = '日期,时间,分区,座位号,状态,全天,累计时长,加时时长,超时时长,费用(元)\n';
+            records.forEach(r => {
+                allCSV += generateCSVLine(r) + '\n';
+            });
+
+            const blob = new Blob(['\ufeff' + allCSV], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `三天历史记录_${formatDateCN(Date.now())}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // ==================== 本地目录设置 ====================
+        async function setupSaveDirectory() {
+            if (!('showDirectoryPicker' in window)) {
+                alert('你的浏览器不支持本地目录保存功能。请使用 Chrome/Edge 浏览器，或通过"导出"按钮手动下载文件。');
+                return;
+            }
+            try {
+                const handle = await window.showDirectoryPicker();
+                saveDirectoryHandle = handle;
+                updateSaveDirStatus(true);
+                alert('目录设置成功！之后每10分钟将自动保存记录到该目录下的日期文件夹中。');
+                await autoSaveRecord();
+            } catch (e) {
+                if (e.name !== 'AbortError') {
+                    alert('设置失败：' + e.message);
+                }
+            }
+        }
+
+        function updateSaveDirStatus(active) {
+            const el = document.getElementById('saveDirStatus');
+            if (active) {
+                el.className = 'save-dir-status active';
+                el.innerHTML = '✅ 已设置本地保存目录（自动保存中）';
+            } else {
+                el.className = 'save-dir-status inactive';
+                el.innerHTML = '⚠️ 未设置本地保存目录（点击"设置自动保存目录"选择F盘）';
+            }
+        }
+
+        function updateLastBackupTime() {
+            const el = document.getElementById('lastBackupTime');
+            el.textContent = '上次备份：' + formatTimeHM(Date.now());
+        }
+
+        async function manualBackupNow() {
+            await autoSaveRecord();
+            updateLastBackupTime();
+            alert('备份完成！');
+        }
+
+        // ==================== 时间格式化 ====================
+        function formatDateCN(timestamp) {
+            const d = new Date(timestamp);
+            return `${d.getMonth() + 1}月${d.getDate()}日`;
+        }
+        function formatTimeHM(timestamp) {
+            const d = new Date(timestamp);
+            return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+        }
+
+        // ==================== 初始化 ====================
+        function init() {
+            if (zones.length === 0) {
+                addZone('A区');
+                addZone('B区');
+            }
+            zones.forEach(z => {
+                z.seats.forEach(s => {
+                    if (s.extraTime === undefined) s.extraTime = 0;
+                    if (s.isAllDay === undefined) s.isAllDay = false;
+                    if (s.overtimeStart === undefined) s.overtimeStart = null;
+                    if (s.lastStartTime === undefined) s.lastStartTime = null;
+                    if (s.totalElapsed === undefined) s.totalElapsed = 0;
+                });
+            });
+            initDB().then(() => {
+                render();
+                setInterval(updateTimers, 1000);
+                setInterval(autoSaveRecord, 10 * 60 * 1000);
+                setTimeout(autoSaveRecord, 3000);
+            });
+        }
+
+        function addZone(name = null) {
+            const zoneId = Date.now() + Math.random();
+            zones.push({
+                id: zoneId,
+                name: name || `新分区`,
+                seats: []
+            });
+            saveData();
+            render();
+        }
+
+        function removeZone(zoneId) {
+            if (confirm('确定要删除这个分区吗？')) {
+                zones = zones.filter(z => z.id !== zoneId);
+                saveData();
+                render();
+            }
+        }
+
+        function addSeat(zoneId) {
+            const zone = zones.find(z => z.id === zoneId);
+            if (zone) {
+                const newNum = zone.seats.length + 1;
+                zone.seats.push({
+                    id: zoneId + '-' + newNum,
+                    number: newNum,
+                    status: 'idle',
+                    startTime: null,
+                    endTime: null,
+                    duration: 0,
+                    overtimeDuration: 0,
+                    pausedAt: null,
+                    totalElapsed: 0,
+                    lastStartTime: null,
+                    overtimeStart: null,
+                    isAllDay: false,
+                    extraTime: 0
+                });
+                saveData();
+                render();
+            }
+        }
+
+        function removeSeat(zoneId, seatId) {
+            const zone = zones.find(z => z.id === zoneId);
+            if (!zone) return;
+            if (zone.seats.length <= 1) {
+                alert('每个分区至少需要保留一个座位');
+                return;
+            }
+            if (!confirm('确定删除这个座位吗？')) return;
+            zone.seats = zone.seats.filter(s => s.id !== seatId);
+            zone.seats.forEach((s, idx) => { s.number = idx + 1; });
+            saveData();
+            render();
+        }
+
+        function deleteCurrentSeat() {
+            if (!currentModalSeat) return;
+            const {zoneId, seatId, zone} = currentModalSeat;
+            removeSeat(zoneId, seatId);
+            closeModal();
+        }
+
+        // 座号依次排列，不再翻转
+        function getDisplaySeats(seats) {
+            return seats;
+        }
+
+        function isOvertimePaused(seat) {
+            return seat.status === 'paused' && seat.overtimeStart !== null;
+        }
+
+        function getSeatCardClass(seat) {
+            if (seat.status === 'active' && seat.isAllDay) return 'all-day';
+            if (isOvertimePaused(seat)) return 'paused overtime-paused';
+            return seat.status;
+        }
+
+        function openModal(zoneId, seatId) {
+            const zone = zones.find(z => z.id === zoneId);
+            const seat = zone.seats.find(s => s.id === seatId);
+            currentModalSeat = {zoneId, seatId, zone, seat};
+
+            document.getElementById('modalTitle').textContent = `${zone.name} - ${seat.number}号座位`;
+            
+            const timeSelection = document.getElementById('timeSelection');
+            const timerDisplay = document.getElementById('timerDisplay');
+            const mainBtn = document.getElementById('mainActionBtn');
+            const endBtn = document.getElementById('endBtn');
+            const deleteBtn = document.getElementById('deleteSeatBtn');
+            const primaryCard = document.getElementById('primaryCard');
+            const extraSection = document.getElementById('extraTimeSection');
+            const extraPanel = document.getElementById('extraTimePanel');
+            const costCard = document.getElementById('costCard');
+
+            extraPanel.classList.remove('show');
+            document.getElementById('extraCustomMinutes').value = '';
+
+            selectedPresetMinutes = null;
+            document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('selected'));
+            document.getElementById('customMinutes').value = '';
+
+            if (seat.status === 'idle') {
+                timeSelection.style.display = 'block';
+                timerDisplay.style.display = 'none';
+                endBtn.style.display = 'none';
+                deleteBtn.style.display = 'inline-flex';
+                extraSection.style.display = 'none';
+                costCard.style.display = 'none';
+                mainBtn.className = 'main-action-btn btn-start';
+                mainBtn.innerHTML = '▶️ 开始计时';
+                document.getElementById('modalSubtitle').textContent = '选择计时方式';
+            } else {
+                timeSelection.style.display = 'none';
+                timerDisplay.style.display = 'grid';
+                endBtn.style.display = 'inline-flex';
+                deleteBtn.style.display = 'none';
+                extraSection.style.display = 'block';
+                costCard.style.display = 'block';
+                
+                updateModalTimerDisplay();
+                
+                if (seat.status === 'active') {
+                    if (seat.isAllDay) {
+                        mainBtn.className = 'main-action-btn btn-pause';
+                        mainBtn.innerHTML = '⏸️ 暂停计时';
+                        primaryCard.className = 'timer-card primary all-day-state';
+                        document.getElementById('modalSubtitle').textContent = '全天模式';
+                    } else {
+                        mainBtn.className = 'main-action-btn btn-pause';
+                        mainBtn.innerHTML = '⏸️ 暂停计时';
+                        primaryCard.className = 'timer-card primary active-state';
+                        document.getElementById('modalSubtitle').textContent = '计时进行中';
+                    }
+                } else if (seat.status === 'paused') {
+                    mainBtn.className = 'main-action-btn btn-continue';
+                    mainBtn.innerHTML = '▶️ 继续计时';
+                    if (isOvertimePaused(seat)) {
+                        primaryCard.className = 'timer-card primary overtime-paused-state';
+                        document.getElementById('modalSubtitle').textContent = '已暂停（超时）';
+                    } else if (seat.isAllDay) {
+                        primaryCard.className = 'timer-card primary paused-state';
+                        document.getElementById('modalSubtitle').textContent = '全天（暂停）';
+                    } else {
+                        primaryCard.className = 'timer-card primary paused-state';
+                        document.getElementById('modalSubtitle').textContent = '计时已暂停';
+                    }
+                } else if (seat.status === 'overtime') {
+                    mainBtn.className = 'main-action-btn btn-pause';
+                    mainBtn.innerHTML = '⏸️ 暂停计时';
+                    primaryCard.className = 'timer-card primary overtime-state';
+                    document.getElementById('modalSubtitle').textContent = '已超时';
+                }
+            }
+
+            document.getElementById('modalOverlay').classList.add('show');
+        }
+
+        function closeModal(event) {
+            if (event && event.target !== document.getElementById('modalOverlay')) return;
+            document.getElementById('modalOverlay').classList.remove('show');
+            currentModalSeat = null;
+        }
+
+        function selectPreset(minutes, btn) {
+            selectedPresetMinutes = minutes;
+            document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            document.getElementById('customMinutes').value = '';
+        }
+
+        function toggleExtraPanel() {
+            document.getElementById('extraTimePanel').classList.toggle('show');
+        }
+
+        function addExtraTime(minutes) {
+            if (!currentModalSeat) return;
+            const {zoneId, seatId, seat} = currentModalSeat;
+            
+            if (seat.status === 'idle') return;
+            
+            const extraSeconds = minutes * 60;
+            seat.extraTime += extraSeconds;
+            
+            if (!seat.isAllDay && seat.endTime) {
+                seat.endTime += minutes * 60 * 1000;
+            }
+            
+            saveData();
+            render();
+            openModal(zoneId, seatId);
+        }
+
+        function addCustomExtraTime() {
+            const input = document.getElementById('extraCustomMinutes');
+            const minutes = parseInt(input.value);
+            if (minutes && minutes > 0) {
+                addExtraTime(minutes);
+                input.value = '';
+            }
+        }
+
+        function handleMainAction() {
+            if (!currentModalSeat) return;
+            const {zoneId, seatId, seat} = currentModalSeat;
+
+            if (seat.status === 'idle') {
+                let minutes = selectedPresetMinutes;
+                if (!minutes) {
+                    const custom = parseInt(document.getElementById('customMinutes').value);
+                    if (custom && custom > 0) minutes = custom;
+                }
+                if (!minutes) { alert('请选择或输入计时时间'); return; }
+
+                const now = Date.now();
+                seat.startTime = now;
+                seat.lastStartTime = now;
+                seat.totalElapsed = 0;
+                seat.overtimeDuration = 0;
+                seat.pausedAt = null;
+                seat.overtimeStart = null;
+                seat.extraTime = 0;
+
+                if (minutes === 480) {
+                    seat.isAllDay = true;
+                    seat.endTime = null;
+                    seat.duration = 0;
+                    seat.status = 'active';
+                } else {
+                    seat.isAllDay = false;
+                    seat.endTime = now + minutes * 60 * 1000;
+                    seat.duration = minutes * 60;
+                    seat.status = 'active';
+                }
+                
+                closeModal();
+                saveData();
+                render();
+                
+            } else if (seat.status === 'active' || seat.status === 'overtime') {
+                seat.pausedAt = Date.now();
+                if (seat.lastStartTime) {
+                    const elapsed = Math.floor((Date.now() - seat.lastStartTime) / 1000);
+                    seat.totalElapsed += elapsed;
+                }
+                seat.status = 'paused';
+                saveData();
+                openModal(zoneId, seatId);
+                render();
+                
+            } else if (seat.status === 'paused') {
+                const now = Date.now();
+                seat.lastStartTime = now;
+                
+                if (!seat.isAllDay && seat.endTime) {
+                    const pausedDuration = now - seat.pausedAt;
+                    seat.endTime += pausedDuration;
+                }
+                if (seat.overtimeStart) {
+                    const pausedDuration = now - seat.pausedAt;
+                    seat.overtimeStart += pausedDuration;
+                }
+                
+                if (seat.overtimeStart) {
+                    seat.status = 'overtime';
+                } else if (seat.isAllDay) {
+                    seat.status = 'active';
+                } else {
+                    seat.status = (seat.endTime && now >= seat.endTime) ? 'overtime' : 'active';
+                }
+                seat.pausedAt = null;
+                
+                saveData();
+                openModal(zoneId, seatId);
+                render();
+            }
+        }
+
+        function endTimer() {
+            if (!currentModalSeat) return;
+            const {zoneId, seatId, seat} = currentModalSeat;
+
+            if ((seat.status === 'active' || seat.status === 'overtime') && seat.lastStartTime) {
+                const elapsed = Math.floor((Date.now() - seat.lastStartTime) / 1000);
+                seat.totalElapsed += elapsed;
+            }
+
+            seat.status = 'idle';
+            seat.startTime = null;
+            seat.endTime = null;
+            seat.pausedAt = null;
+            seat.lastStartTime = null;
+            seat.overtimeStart = null;
+            seat.totalElapsed = 0;
+            seat.overtimeDuration = 0;
+            seat.isAllDay = false;
+            seat.extraTime = 0;
+
+            closeModal();
+            saveData();
+            render();
+        }
+
+        function updateModalTimerDisplay() {
+            if (!currentModalSeat) return;
+            const {seat} = currentModalSeat;
+            const primaryLabel = document.getElementById('primaryLabel');
+            const primaryValue = document.getElementById('primaryValue');
+            const cumulativeValue = document.getElementById('cumulativeValue');
+            const extraCard = document.getElementById('extraCard');
+            const extraValue = document.getElementById('extraValue');
+            const costCard = document.getElementById('costCard');
+            const costValue = document.getElementById('costValue');
+
+            let cumulative = seat.totalElapsed || 0;
+            if ((seat.status === 'active' || seat.status === 'overtime') && seat.lastStartTime) {
+                cumulative += Math.floor((Date.now() - seat.lastStartTime) / 1000);
+            }
+
+            if (seat.status === 'active') {
+                if (seat.isAllDay) {
+                    primaryLabel.textContent = '全天模式';
+                    primaryValue.textContent = '全天';
+                } else {
+                    const remaining = Math.ceil((seat.endTime - Date.now()) / 1000);
+                    primaryLabel.textContent = '剩余时间';
+                    primaryValue.textContent = remaining > 0 ? formatTime(remaining) : '00:00';
+                }
+            } else if (seat.status === 'paused') {
+                if (seat.isAllDay) {
+                    primaryLabel.textContent = '全天（暂停）';
+                    primaryValue.textContent = '全天';
+                } else if (isOvertimePaused(seat)) {
+                    const overtimeAtPause = Math.floor((seat.pausedAt - seat.overtimeStart) / 1000);
+                    primaryLabel.textContent = '已超时';
+                    primaryValue.textContent = '超时：' + formatTime(overtimeAtPause);
+                } else {
+                    const remaining = Math.ceil((seat.endTime - seat.pausedAt) / 1000);
+                    primaryLabel.textContent = '暂停剩余';
+                    primaryValue.textContent = formatTime(remaining);
+                }
+            } else if (seat.status === 'overtime') {
+                primaryLabel.textContent = '已超时';
+                primaryValue.textContent = '超时：' + formatTime(seat.overtimeDuration);
+            }
+
+            cumulativeValue.textContent = formatFullTime(cumulative);
+
+            if (seat.extraTime > 0) {
+                extraCard.style.display = 'block';
+                extraValue.textContent = formatFullTime(seat.extraTime);
+            } else {
+                extraCard.style.display = 'none';
+            }
+
+            if (seat.status !== 'idle') {
+                const cost = calculateCost(seat);
+                costCard.style.display = 'block';
+                costValue.textContent = `¥${cost.toFixed(2)}`;
+            } else {
+                costCard.style.display = 'none';
+            }
+        }
+
+        function updateTimers() {
+            let hasChange = false;
+            let overtimeList = [];
+
+            zones.forEach(zone => {
+                zone.seats.forEach(seat => {
+                    if (seat.status === 'active' && !seat.isAllDay && seat.endTime) {
+                        const remaining = Math.ceil((seat.endTime - Date.now()) / 1000);
+                        if (remaining <= 0) {
+                            const elapsed = Math.floor((seat.endTime - seat.lastStartTime) / 1000);
+                            seat.totalElapsed += elapsed;
+                            
+                            seat.status = 'overtime';
+                            seat.overtimeStart = Date.now();
+                            seat.lastStartTime = Date.now();
+                            seat.overtimeDuration = 0;
+                            overtimeList.push(`${zone.name} - ${seat.number}号座位`);
+                            hasChange = true;
+                            if (soundEnabled) playAlert();
+                        }
+                    } else if (seat.status === 'overtime' && seat.overtimeStart) {
+                        seat.overtimeDuration = Math.floor((Date.now() - seat.overtimeStart) / 1000);
+                    }
+                });
+            });
+
+            if (overtimeList.length > 0) {
+                showNotification(overtimeList);
+            }
+            if (hasChange) saveData();
+
+            updateStats();
+            updateTimerDisplay();
+            updateModalTimerDisplay();
+        }
+
+        function getDisplayCumulative(seat) {
+            let total = seat.totalElapsed || 0;
+            if ((seat.status === 'active' || seat.status === 'overtime') && seat.lastStartTime) {
+                total += Math.floor((Date.now() - seat.lastStartTime) / 1000);
+            }
+            return total;
+        }
+
+        function updateTimerDisplay() {
+            zones.forEach(zone => {
+                const displaySeats = getDisplaySeats(zone.seats);
+                displaySeats.forEach(seat => {
+                    const el = document.getElementById(`timer-${seat.id}`);
+                    const cumEl = document.getElementById(`cumulative-${seat.id}`);
+                    const extraEl = document.getElementById(`extra-${seat.id}`);
+                    const statusEl = document.getElementById(`status-${seat.id}`);
+                    const card = document.getElementById(`seat-${seat.id}`);
+                    const costEl = document.getElementById(`cost-${seat.id}`);
+                    if (!el || !card) return;
+
+                    card.className = `seat-card ${getSeatCardClass(seat)}`;
+
+                    const cumulative = getDisplayCumulative(seat);
+                    const cost = calculateCost(seat);
+
+                    if (seat.status === 'idle') {
+                        el.textContent = '--:--';
+                        cumEl.textContent = '累计: 00:00:00';
+                        if (extraEl) extraEl.textContent = '';
+                        if (costEl) costEl.textContent = '';
+                        statusEl.textContent = '空闲';
+                    } else if (seat.status === 'active') {
+                        if (seat.isAllDay) {
+                            el.textContent = '全天';
+                            cumEl.textContent = '累计: ' + formatFullTime(cumulative);
+                            if (extraEl) extraEl.textContent = seat.extraTime > 0 ? '加时: ' + formatFullTime(seat.extraTime) : '';
+                            if (costEl) costEl.textContent = `¥${cost.toFixed(2)}`;
+                            statusEl.textContent = '全天';
+                        } else {
+                            const remaining = Math.ceil((seat.endTime - Date.now()) / 1000);
+                            if (remaining > 0) {
+                                el.textContent = formatTime(remaining);
+                                cumEl.textContent = '累计: ' + formatFullTime(cumulative);
+                                if (extraEl) extraEl.textContent = seat.extraTime > 0 ? '加时: ' + formatFullTime(seat.extraTime) : '';
+                                if (costEl) costEl.textContent = `¥${cost.toFixed(2)}`;
+                                statusEl.textContent = '进行中';
+                            }
+                        }
+                    } else if (seat.status === 'paused') {
+                        if (seat.isAllDay) {
+                            el.textContent = '全天';
+                            cumEl.textContent = '累计: ' + formatFullTime(cumulative);
+                            if (extraEl) extraEl.textContent = seat.extraTime > 0 ? '加时: ' + formatFullTime(seat.extraTime) : '';
+                            if (costEl) costEl.textContent = `¥${cost.toFixed(2)}`;
+                            statusEl.textContent = '已暂停';
+                        } else if (isOvertimePaused(seat)) {
+                            const overtimeAtPause = Math.floor((seat.pausedAt - seat.overtimeStart) / 1000);
+                            el.textContent = '超时：' + formatTime(overtimeAtPause);
+                            cumEl.textContent = '累计: ' + formatFullTime(cumulative);
+                            if (extraEl) extraEl.textContent = seat.extraTime > 0 ? '加时: ' + formatFullTime(seat.extraTime) : '';
+                            if (costEl) costEl.textContent = `¥${cost.toFixed(2)}`;
+                            statusEl.textContent = '已暂停';
+                        } else {
+                            const remaining = Math.ceil((seat.endTime - seat.pausedAt) / 1000);
+                            el.textContent = formatTime(remaining);
+                            cumEl.textContent = '累计: ' + formatFullTime(cumulative);
+                            if (extraEl) extraEl.textContent = seat.extraTime > 0 ? '加时: ' + formatFullTime(seat.extraTime) : '';
+                            if (costEl) costEl.textContent = `¥${cost.toFixed(2)}`;
+                            statusEl.textContent = '已暂停';
+                        }
+                    } else if (seat.status === 'overtime') {
+                        el.textContent = '超时：' + formatTime(seat.overtimeDuration);
+                        cumEl.textContent = '累计: ' + formatFullTime(cumulative);
+                        if (extraEl) extraEl.textContent = seat.extraTime > 0 ? '加时: ' + formatFullTime(seat.extraTime) : '';
+                        if (costEl) costEl.textContent = `¥${cost.toFixed(2)}`;
+                        statusEl.textContent = '已超时';
+                    }
+                });
+            });
+        }
+
+        function formatTime(seconds) {
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = seconds % 60;
+            if (h > 0) {
+                return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            }
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function formatFullTime(seconds) {
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = seconds % 60;
+            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function updateStats() {
+            let total = 0, active = 0, overtime = 0, allDay = 0, idle = 0;
+            zones.forEach(z => {
+                total += z.seats.length;
+                z.seats.forEach(s => {
+                    if (s.status === 'active' && s.isAllDay) allDay++;
+                    else if (s.status === 'active') active++;
+                    else if (s.status === 'overtime') overtime++;
+                    else if (s.status === 'paused') active++;
+                    else idle++;
+                });
+            });
+            document.getElementById('totalSeats').textContent = total;
+            document.getElementById('activeSeats').textContent = active;
+            document.getElementById('overtimeSeats').textContent = overtime;
+            document.getElementById('allDaySeats').textContent = allDay;
+            document.getElementById('idleSeats').textContent = idle;
+        }
+
+        function render() {
+            const container = document.getElementById('zonesContainer');
+            if (zones.length === 0) {
+                container.innerHTML = `<div style="grid-column:1/-1;text-align:center;color:white;padding:60px;">
+                    <h2>暂无分区</h2><p>点击上方"添加分区"按钮开始</p></div>`;
+                return;
+            }
+
+            container.innerHTML = zones.map((zone, zoneIndex) => {
+                const color = getZoneColor(zoneIndex);
+                const displaySeats = getDisplaySeats(zone.seats);
+                return `
+                <div class="zone-card" style="--zone-color: ${color.primary}">
+                    <div class="zone-header">
+                        <div class="zone-title">
+                            <input type="text" value="${zone.name}" 
+                                onchange="renameZone(${zone.id}, this.value)"
+                                onblur="renameZone(${zone.id}, this.value)">
+                        </div>
+                        <div class="zone-actions">
+                            <button class="btn btn-success" onclick="event.stopPropagation(); addSeat(${zone.id})">➕ 添加座位</button>
+                            <button class="btn btn-danger" onclick="event.stopPropagation(); removeZone(${zone.id})">🗑️ 删分区</button>
+                        </div>
+                    </div>
+                    ${zone.seats.length === 0 ? `
+                        <div class="empty-seats">
+                            <p>暂无座位，点击"添加座位"按钮添加</p>
+                        </div>
+                    ` : `
+                    <div class="seats-grid">
+                        ${displaySeats.map(seat => `
+                            <div class="seat-card ${getSeatCardClass(seat)}" 
+                                 id="seat-${seat.id}"
+                                 onclick="openModal(${zone.id}, '${seat.id}')">
+                                <div class="seat-number">${zone.name} - ${seat.number}号</div>
+                                <div class="seat-timer" id="timer-${seat.id}">--:--</div>
+                                <div class="seat-cumulative" id="cumulative-${seat.id}">累计: 00:00:00</div>
+                                <div class="seat-extra" id="extra-${seat.id}"></div>
+                                <div class="seat-cost" id="cost-${seat.id}"></div>
+                                <div class="seat-status" id="status-${seat.id}">空闲</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    `}
+                </div>
+            `}).join('');
+
+            updateTimerDisplay();
+            updateStats();
+        }
+
+        function renameZone(zoneId, newName) {
+            const zone = zones.find(z => z.id === zoneId);
+            if (zone) { zone.name = newName; saveData(); }
+        }
+
+        function saveData() {
+            localStorage.setItem('perlerZones', JSON.stringify(zones));
+        }
+
+        function clearAll() {
+            if (confirm('确定要重置所有计时吗？所有座位将恢复空闲状态。')) {
+                zones.forEach(zone => {
+                    zone.seats.forEach(seat => {
+                        seat.status = 'idle';
+                        seat.startTime = null;
+                        seat.endTime = null;
+                        seat.pausedAt = null;
+                        seat.lastStartTime = null;
+                        seat.overtimeStart = null;
+                        seat.totalElapsed = 0;
+                        seat.overtimeDuration = 0;
+                        seat.isAllDay = false;
+                        seat.extraTime = 0;
+                    });
+                });
+                saveData();
+                render();
+            }
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            document.getElementById('soundToggle').textContent = soundEnabled ? '🔔' : '🔇';
+            if (soundEnabled && !audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playAlert() {
+            if (!audioContext) return;
+            for (let i = 0; i < 3; i++) {
+                setTimeout(() => {
+                    const osc = audioContext.createOscillator();
+                    const gain = audioContext.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioContext.destination);
+                    osc.frequency.value = 800;
+                    osc.type = 'sine';
+                    gain.gain.setValueAtTime(0.3, audioContext.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+                    osc.start(audioContext.currentTime);
+                    osc.stop(audioContext.currentTime + 0.5);
+                }, i * 600);
+            }
+        }
+
+        function showNotification(list) {
+            const notif = document.getElementById('notification');
+            const text = document.getElementById('notificationText');
+            text.textContent = list.join('、') + ' 已超时！';
+            notif.classList.add('show');
+            setTimeout(() => notif.classList.remove('show'), 5000);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+                closePricingModal();
+            }
+        });
+
+        init();
+    </script>
+</body>
+</html>
