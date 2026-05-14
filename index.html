@@ -2,11 +2,18 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>好想玩手工创作 - 计时计费系统</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>好想玩手工创作 - 计时系统</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        
+
+        :root {
+            --zone-color: #667eea;
+            --zone-color-light: #e7f5ff;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -73,12 +80,25 @@
         .btn-success { background: #51cf66; color: white; }
         .btn-warning { background: #ffd43b; color: #333; }
         .btn-info { background: #339af0; color: white; }
+        .btn-sync {
+            background: linear-gradient(135deg, #845ef7 0%, #5f3dc4 100%);
+            color: white;
+            animation: syncPulse 2s infinite;
+        }
+        @keyframes syncPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(132, 94, 247, 0.4); }
+            50% { box-shadow: 0 0 0 8px rgba(132, 94, 247, 0); }
+        }
+        .btn-sync.active {
+            background: linear-gradient(135deg, #51cf66 0%, #40c057 100%);
+            animation: none;
+        }
 
         .zones-container {
             max-width: 1400px;
             margin: 0 auto;
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(900px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(700px, 1fr));
             gap: 20px;
         }
         .zone-card {
@@ -87,22 +107,24 @@
             padding: 20px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.1);
             transition: transform 0.3s ease;
-            border-top: 5px solid var(--zone-color, #667eea);
+            border-top: 4px solid var(--zone-color, #667eea);
         }
         .zone-card:hover { transform: translateY(-2px); }
-        
+
         .zone-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
-            padding-bottom: 15px;
+            padding: 12px 15px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--zone-color-light, #f8f9fa) 0%, #ffffff 100%);
             border-bottom: 2px solid #f0f0f0;
         }
         .zone-title {
             font-size: 1.5em;
             font-weight: 700;
-            color: var(--zone-color, #495057);
+            color: #495057;
             display: flex;
             align-items: center;
             gap: 8px;
@@ -113,8 +135,9 @@
             border: 2px solid #e9ecef;
             border-radius: 6px;
             padding: 4px 10px;
-            color: var(--zone-color, #495057);
+            color: #495057;
             width: 200px;
+            background: white;
         }
         .zone-title input:focus {
             outline: none;
@@ -138,12 +161,13 @@
         .seat-card {
             background: #f8f9fa;
             border-radius: 12px;
-            padding: 12px 6px;
+            padding: 12px 8px;
             text-align: center;
             cursor: pointer;
             transition: all 0.3s ease;
             border: 2px solid transparent;
             position: relative;
+            min-width: 0;
         }
         .seat-card:hover {
             transform: scale(1.05);
@@ -174,7 +198,7 @@
             0%, 100% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.4); }
             50% { box-shadow: 0 0 0 10px rgba(255, 107, 107, 0); }
         }
-        
+
         .seat-number {
             font-size: 0.8em;
             font-weight: 600;
@@ -191,9 +215,9 @@
         .seat-card.active .seat-timer { color: #339af0; }
         .seat-card.all-day .seat-timer { color: #40c057; }
         .seat-card.overtime .seat-timer { color: #ff6b6b; }
-        
+
         .seat-cumulative {
-            font-size: 0.72em;
+            font-size: 0.7em;
             font-weight: 600;
             color: #868e96;
             margin-bottom: 2px;
@@ -204,9 +228,9 @@
         .seat-card.paused .seat-cumulative,
         .seat-card.overtime .seat-cumulative,
         .seat-card.paused.overtime-paused .seat-cumulative { color: #495057; }
-        
+
         .seat-extra {
-            font-size: 0.72em;
+            font-size: 0.7em;
             font-weight: 600;
             color: #868e96;
             margin-bottom: 2px;
@@ -220,15 +244,6 @@
             display: block;
             color: #e64980;
         }
-        
-        .seat-cost {
-            font-size: 0.78em;
-            font-weight: 700;
-            color: #e64980;
-            margin-top: 2px;
-            font-variant-numeric: tabular-nums;
-        }
-        .seat-card.idle .seat-cost { display: none; }
 
         .seat-status {
             font-size: 0.7em;
@@ -236,12 +251,21 @@
             padding: 3px 10px;
             border-radius: 20px;
             display: inline-block;
-            margin-top: 2px;
         }
         .seat-card.idle .seat-status { background: #e9ecef; color: #868e96; }
         .seat-card.active .seat-status { background: #d0ebff; color: #1971c2; }
         .seat-card.all-day .seat-status { background: #d3f9d8; color: #2b8a3e; }
         .seat-card.overtime .seat-status { background: #ffc9c9; color: #c92a2a; }
+
+        .seat-placeholder {
+            visibility: hidden;
+            background: transparent !important;
+            border: 2px dashed #e9ecef !important;
+            box-shadow: none !important;
+            cursor: default !important;
+            pointer-events: none;
+            min-height: 80px;
+        }
 
         /* 弹窗 */
         .modal-overlay {
@@ -316,14 +340,7 @@
         }
         .timer-card.extra-state .timer-card-value { color: #e64980; }
         .timer-card.extra-state .timer-card-label { color: #d6336c; }
-        .timer-card.cost-state {
-            border: 2px solid #f06595;
-            background: #fff0f6;
-            grid-column: 1 / -1;
-        }
-        .timer-card.cost-state .timer-card-value { color: #e64980; }
-        .timer-card.cost-state .timer-card-label { color: #d6336c; }
-        
+
         .timer-card-label {
             font-size: 0.75em;
             font-weight: 600;
@@ -363,14 +380,14 @@
         }
         .preset-btn:hover { border-color: #667eea; color: #667eea; background: #f8f9ff; }
         .preset-btn.selected { border-color: #667eea; background: #667eea; color: white; }
-        
+
         .custom-time-row {
             display: flex;
             gap: 10px;
             align-items: center;
             margin-bottom: 15px;
         }
-        .custom-time-row input, .custom-time-row select {
+        .custom-time-row input {
             flex: 1;
             padding: 12px;
             border: 2px solid #e9ecef;
@@ -379,15 +396,8 @@
             text-align: center;
             font-weight: 600;
         }
-        .custom-time-row input:focus, .custom-time-row select:focus { outline: none; border-color: #667eea; }
+        .custom-time-row input:focus { outline: none; border-color: #667eea; }
         .custom-time-row span { font-size: 14px; color: #868e96; white-space: nowrap; }
-        .custom-time-row label {
-            font-size: 14px;
-            color: #495057;
-            font-weight: 600;
-            min-width: 120px;
-            text-align: left;
-        }
 
         .modal-section-title {
             font-size: 0.85em;
@@ -415,7 +425,7 @@
         }
         .main-action-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
         .main-action-btn:active { transform: translateY(0); }
-        
+
         .btn-start { background: linear-gradient(135deg, #51cf66 0%, #40c057 100%); color: white; }
         .btn-pause { background: linear-gradient(135deg, #ffd43b 0%, #fcc419 100%); color: #333; }
         .btn-continue { background: linear-gradient(135deg, #339af0 0%, #228be6 100%); color: white; }
@@ -484,6 +494,124 @@
             flex: 1;
             justify-content: center;
             padding: 12px;
+        }
+
+        /* 同步弹窗专用样式 */
+        .sync-section {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .sync-section:last-of-type {
+            border-bottom: none;
+        }
+        .sync-desc {
+            font-size: 0.85em;
+            color: #868e96;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+        .sync-code-box {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .sync-code-box textarea {
+            flex: 1;
+            min-height: 70px;
+            padding: 8px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            word-break: break-all;
+            resize: vertical;
+        }
+        .sync-code-box textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .sync-status {
+            display: inline-block;
+            background: #e6fcf5;
+            color: #2b8a3e;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        .sync-status.warning {
+            background: #fff9db;
+            color: #e67700;
+        }
+        .sync-status.error {
+            background: #fff5f5;
+            color: #c92a2a;
+        }
+        #syncCodeInput {
+            width: 100%;
+            min-height: 70px;
+            padding: 8px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            margin-bottom: 8px;
+            word-break: break-all;
+            resize: vertical;
+        }
+        #syncCodeInput:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        #qrcode {
+            text-align: center;
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 12px;
+        }
+        #qrcode img {
+            display: inline-block !important;
+            margin: 0 auto;
+        }
+
+        .webrtc-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+        .webrtc-status.connecting {
+            background: #fff9db;
+            color: #e67700;
+        }
+        .webrtc-status.connected {
+            background: #e6fcf5;
+            color: #2b8a3e;
+        }
+        .webrtc-status.disconnected {
+            background: #fff5f5;
+            color: #c92a2a;
+        }
+        .webrtc-peers {
+            font-size: 0.85em;
+            color: #868e96;
+            margin-top: 5px;
+        }
+        .webrtc-peers span {
+            display: inline-block;
+            background: #e7f5ff;
+            color: #1971c2;
+            padding: 2px 8px;
+            border-radius: 12px;
+            margin: 2px;
+            font-size: 0.8em;
         }
 
         /* 导出面板 */
@@ -560,22 +688,41 @@
             z-index: 50;
         }
 
-        @media (max-width: 1200px) {
-            .seats-grid { grid-template-columns: repeat(4, 1fr); }
-            .zones-container { grid-template-columns: 1fr; }
-        }
+        /* 响应式优化 */
         @media (max-width: 768px) {
+            body { padding: 10px; }
             .zones-container { grid-template-columns: 1fr; }
-            .seats-grid { grid-template-columns: repeat(2, 1fr); }
-            .header h1 { font-size: 1.8em; }
+            .seats-grid { gap: 4px; }
+            .seat-card { padding: 6px 2px; border-radius: 8px; min-width: 0; }
+            .seat-timer { font-size: 0.85em; }
+            .seat-number { font-size: 0.65em; margin-bottom: 2px; }
+            .seat-cumulative { font-size: 0.6em; }
+            .seat-extra { font-size: 0.6em; }
+            .seat-status { font-size: 0.6em; padding: 2px 4px; }
+            .header h1 { font-size: 1.5em; }
+            .zone-title { font-size: 1.1em; }
+            .zone-title input { width: 140px; }
+            .toolbar .btn { padding: 8px 12px; font-size: 12px; }
+            .modal-content { padding: 20px; width: 95%; }
             .timer-display-grid { grid-template-columns: 1fr; }
+            .export-grid { grid-template-columns: 1fr 1fr; }
+            .stats-bar { gap: 8px; }
+            .stat-item { padding: 6px 10px; font-size: 0.85em; }
+            .seat-placeholder { min-height: 60px; }
+        }
+
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .zones-container { grid-template-columns: 1fr; }
+            .seats-grid { gap: 8px; }
+            .seat-card { padding: 10px 6px; }
         }
     </style>
+<base target="_blank">
 </head>
 <body>
     <div class="header">
         <h1>🎨 好想玩手工创作</h1>
-        <p class="subtitle">分区管理 · 八座一排 · 超时提醒 · 加时支持 · 自动备份 · 计费统计</p>
+        <p class="subtitle">分区管理 · 8座对称固定布局 · 超时提醒 · 加时支持 · 多端自动同步</p>
     </div>
 
     <div class="stats-bar">
@@ -588,11 +735,12 @@
 
     <div class="toolbar">
         <button class="btn btn-primary" onclick="addZone()">➕ 添加分区</button>
-        <button class="btn btn-warning" onclick="openPricingModal()">💰 价格设置</button>
         <button class="btn btn-success" onclick="saveData()">💾 保存数据</button>
+        <button class="btn btn-sync" id="syncBtn" onclick="toggleAutoSync()">📡 开启自动同步</button>
         <button class="btn btn-danger" onclick="clearAll()">🗑️ 全部重置</button>
     </div>
 
+    <!-- 导出与自动保存面板 -->
     <div class="export-panel">
         <h3>📊 统计与导出</h3>
         <div class="export-grid">
@@ -610,7 +758,7 @@
 
     <div class="zones-container" id="zonesContainer"></div>
 
-    <!-- 座位操作弹窗 -->
+    <!-- 座位弹窗 -->
     <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
         <div class="modal-content" onclick="event.stopPropagation()">
             <div class="modal-header">
@@ -630,10 +778,6 @@
                 <div class="timer-card extra-state" id="extraCard" style="display:none;">
                     <div class="timer-card-label">⏱️ 加时时长</div>
                     <div class="timer-card-value" id="extraValue">00:00:00</div>
-                </div>
-                <div class="timer-card cost-state" id="costCard" style="display:none;">
-                    <div class="timer-card-label">💰 当前费用</div>
-                    <div class="timer-card-value" id="costValue">¥0.00</div>
                 </div>
             </div>
 
@@ -687,38 +831,70 @@
         </div>
     </div>
 
-    <!-- 价格设置弹窗 -->
-    <div class="modal-overlay" id="pricingModalOverlay" onclick="closePricingModal(event)">
+    <!-- 同步弹窗 -->
+    <div class="modal-overlay" id="syncModalOverlay" onclick="closeSyncModal(event)">
         <div class="modal-content" onclick="event.stopPropagation()">
             <div class="modal-header">
-                <h2>💰 价格设置</h2>
-                <div class="modal-subtitle">设置计费标准（填0表示不显示费用）</div>
+                <h2>📡 自动同步设置</h2>
+                <div class="modal-subtitle">局域网内设备自动实时同步数据</div>
             </div>
-            <div style="margin-bottom:15px;">
-                <div class="modal-section-title">小时计费</div>
-                <div class="custom-time-row">
-                    <input type="number" id="hourlyRate" placeholder="例如：30" min="0" step="0.1">
-                    <span>元/小时</span>
+
+            <div class="sync-section">
+                <div class="modal-section-title">同步状态</div>
+                <div class="webrtc-status disconnected" id="webrtcStatus">
+                    <span id="webrtcStatusIcon">⚪</span>
+                    <span id="webrtcStatusText">未连接 - 点击"开启自动同步"建立连接</span>
+                </div>
+                <div class="webrtc-peers" id="webrtcPeers"></div>
+            </div>
+
+            <div class="sync-section">
+                <div class="modal-section-title">方式一：WebRTC 局域网直连（推荐）</div>
+                <p class="sync-desc">无需服务器，同一WiFi下的手机、平板、电脑自动实时同步。数据变更瞬间同步到所有设备。</p>
+                <div id="webrtcControls">
+                    <button class="btn btn-success" onclick="startWebRTC()" style="width:100%; margin-bottom:8px;">🚀 创建同步房间（作为主机）</button>
+                    <button class="btn btn-info" onclick="joinWebRTC()" style="width:100%;">🔗 加入同步房间（作为客户端）</button>
+                </div>
+                <div id="webrtcQRArea" style="display:none; margin-top:10px;">
+                    <p class="sync-desc" id="webrtcQRDesc">请用另一台设备扫描下方二维码加入同步</p>
+                    <div id="qrcode"></div>
+                    <div class="sync-code-box">
+                        <textarea id="webrtcCode" readonly onclick="this.select()"></textarea>
+                        <button class="btn btn-primary" onclick="copyWebRTCCode()">📋 复制</button>
+                    </div>
                 </div>
             </div>
-            <div style="margin-bottom:15px;">
-                <div class="modal-section-title">全天套餐</div>
-                <div class="custom-time-row">
-                    <input type="number" id="allDayRate" placeholder="例如：100" min="0" step="0.1">
-                    <span>元/天</span>
+
+            <div class="sync-section">
+                <div class="modal-section-title">方式二：同设备实时同步</div>
+                <p class="sync-desc">在同一台电脑/手机的多个浏览器标签页间，数据已自动实时同步（无需任何操作）。</p>
+                <span class="sync-status" id="broadcastStatus">状态：检测中...</span>
+            </div>
+
+            <div class="sync-section">
+                <div class="modal-section-title">方式三：同步码手动同步</div>
+                <p class="sync-desc">如果局域网直连失败，可使用同步码手动同步。数据变更后需重新生成同步码。</p>
+                <div class="sync-code-box">
+                    <textarea id="syncCodeDisplay" readonly onclick="this.select()"></textarea>
+                    <button class="btn btn-primary" onclick="copySyncCode()">📋 复制</button>
+                </div>
+                <button class="btn btn-success" onclick="generateSyncQR()" style="width:100%; margin-bottom:8px;">🔄 生成二维码</button>
+                <textarea id="syncCodeInput" placeholder="在此粘贴其他设备生成的同步码..."></textarea>
+                <button class="btn btn-primary" onclick="applySyncCodeFromInput()" style="width:100%;">📥 应用同步码</button>
+            </div>
+
+            <div class="sync-section">
+                <div class="modal-section-title">方式四：文件同步（跨网络）</div>
+                <p class="sync-desc">导出完整数据文件，通过微信/邮件发送到其他设备导入。适合不同网络环境。</p>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn btn-info" onclick="exportFullData()" style="flex:1; justify-content:center;">💾 导出完整数据</button>
+                    <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="importFullData(this.files[0])">
+                    <button class="btn btn-warning" onclick="document.getElementById('importFileInput').click()" style="flex:1; justify-content:center;">📁 导入数据文件</button>
                 </div>
             </div>
-            <div style="margin-bottom:20px;">
-                <div class="modal-section-title">计费精度</div>
-                <div class="time-presets">
-                    <button class="preset-btn" id="prec-hour" onclick="setPrecision('hour', this)">按小时取整</button>
-                    <button class="preset-btn" id="prec-half" onclick="setPrecision('halfHour', this)">按半小时取整</button>
-                    <button class="preset-btn" id="prec-actual" onclick="setPrecision('actual', this)">按实际分钟</button>
-                </div>
-            </div>
-            <button class="main-action-btn btn-success" onclick="savePricing()">💾 保存设置</button>
+
             <div class="modal-footer">
-                <button class="btn btn-primary" onclick="closePricingModal()" style="flex:1;">关闭</button>
+                <button class="btn btn-primary" onclick="closeSyncModal()">关闭</button>
             </div>
         </div>
     </div>
@@ -731,21 +907,17 @@
     </div>
 
     <script>
-        // ==================== 分区颜色配置 ====================
+        // ==================== 配置与常量 ====================
         const ZONE_COLORS = [
-            { primary: '#667eea', light: '#e7f5ff' },   // 蓝紫
-            { primary: '#e64980', light: '#fff0f6' },   // 粉红
-            { primary: '#40c057', light: '#e6fcf5' },   // 绿色
-            { primary: '#fd7e14', light: '#fff4e6' },   // 橙色
-            { primary: '#15aabf', light: '#e3fafc' },     // 青色
-            { primary: '#be4bdb', light: '#f3d9fa' },   // 紫色
-            { primary: '#fa5252', light: '#fff5f5' },   // 红色
-            { primary: '#82c91e', light: '#f4fce3' },   // 黄绿
+            { name: '紫蓝', primary: '#667eea', light: '#e7f5ff' },
+            { name: '青绿', primary: '#0ca678', light: '#e6fcf5' },
+            { name: '橙黄', primary: '#f76707', light: '#fff9db' },
+            { name: '粉红', primary: '#e64980', light: '#fff0f6' },
+            { name: '靛蓝', primary: '#4c6ef5', light: '#edf2ff' },
+            { name: '水青', primary: '#1098ad', light: '#e3fafc' },
+            { name: '玫红', primary: '#ae3ec9', light: '#f8f0fc' },
+            { name: '棕橙', primary: '#e8590c', light: '#fff4e6' }
         ];
-
-        function getZoneColor(index) {
-            return ZONE_COLORS[index % ZONE_COLORS.length];
-        }
 
         // ==================== 数据层 ====================
         let zones = JSON.parse(localStorage.getItem('perlerZones')) || [];
@@ -754,108 +926,310 @@
         let currentModalSeat = null;
         let selectedPresetMinutes = null;
         let saveDirectoryHandle = null;
-        let currentPrecision = 'hour';
         const DB_NAME = 'HandCraftTimerDB';
         const DB_VERSION = 1;
         const STORE_NAME = 'records';
         let db = null;
+        let bc = null;
 
-        // ==================== 计费系统 ====================
-        function getPricing() {
-            return JSON.parse(localStorage.getItem('perlerPricing')) || { hourly: 0, allDay: 0, precision: 'hour' };
-        }
+        // ==================== WebRTC 自动同步 ====================
+        let rtcConnections = [];
+        let rtcDataChannels = [];
+        let isWebRTCActive = false;
+        let webRTCMode = null; // 'host' or 'client'
+        let pendingOffers = [];
+        let myDeviceId = localStorage.getItem('deviceId') || ('dev-' + Math.random().toString(36).substr(2, 9));
+        localStorage.setItem('deviceId', myDeviceId);
 
-        function calculateTimeCost(seconds, pricing) {
-            if (!pricing || pricing.hourly <= 0) return 0;
-            const hours = seconds / 3600;
-            let billableHours;
-            if (pricing.precision === 'hour') {
-                billableHours = Math.ceil(hours);
-            } else if (pricing.precision === 'halfHour') {
-                billableHours = Math.ceil(hours * 2) / 2;
+        function updateWebRTCStatus(state, text) {
+            const el = document.getElementById('webrtcStatus');
+            const icon = document.getElementById('webrtcStatusIcon');
+            const txt = document.getElementById('webrtcStatusText');
+            el.className = 'webrtc-status ' + state;
+            if (state === 'connected') {
+                icon.textContent = '🟢';
+                txt.textContent = text || '已连接 - 数据自动实时同步中';
+            } else if (state === 'connecting') {
+                icon.textContent = '🟡';
+                txt.textContent = text || '连接中...';
             } else {
-                billableHours = hours;
+                icon.textContent = '⚪';
+                txt.textContent = text || '未连接';
             }
-            return billableHours * pricing.hourly;
         }
 
-        function calculateCost(seat) {
-            const pricing = getPricing();
-            if (pricing.hourly <= 0 && pricing.allDay <= 0) return 0;
-            if (seat.status === 'idle') return 0;
-            
-            let cost = 0;
-            const cumulative = getDisplayCumulative(seat);
-            
-            if (seat.isAllDay) {
-                cost = pricing.allDay;
-                if (seat.extraTime > 0) cost += calculateTimeCost(seat.extraTime, pricing);
+        function updatePeersList() {
+            const el = document.getElementById('webrtcPeers');
+            if (rtcDataChannels.length === 0) {
+                el.innerHTML = '';
+                return;
+            }
+            const connected = rtcDataChannels.filter(dc => dc.readyState === 'open').length;
+            el.innerHTML = '<div>已连接设备: ' + connected + ' 台</div>' +
+                rtcDataChannels.filter(dc => dc.readyState === 'open').map((dc, i) => 
+                    `<span>设备${i+1}</span>`
+                ).join('');
+        }
+
+        function broadcastToPeers(data) {
+            const msg = JSON.stringify(data);
+            rtcDataChannels.forEach(dc => {
+                if (dc.readyState === 'open') {
+                    try { dc.send(msg); } catch(e) {}
+                }
+            });
+        }
+
+        function createPeerConnection() {
+            const pc = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
+
+            pc.onicecandidate = (event) => {
+                if (event.candidate) return;
+                if (webRTCMode === 'host') {
+                    const offer = pc.localDescription;
+                    const code = LZString.compressToEncodedURIComponent(JSON.stringify({
+                        type: 'offer',
+                        sdp: offer.sdp,
+                        deviceId: myDeviceId
+                    }));
+                    document.getElementById('webrtcCode').value = code;
+                    generateQRFromCode(code);
+                }
+            };
+
+            const dc = pc.createDataChannel('sync', { ordered: true });
+            setupDataChannel(dc, pc);
+
+            return { pc, dc };
+        }
+
+        function setupDataChannel(dc, pc) {
+            rtcDataChannels.push(dc);
+
+            dc.onopen = () => {
+                updateWebRTCStatus('connected');
+                updatePeersList();
+                if (webRTCMode === 'host') {
+                    dc.send(JSON.stringify({ type: 'init', zones: zones, from: myDeviceId }));
+                }
+            };
+
+            dc.onclose = () => {
+                updatePeersList();
+                if (rtcDataChannels.filter(c => c.readyState === 'open').length === 0) {
+                    updateWebRTCStatus('disconnected', '连接已断开');
+                }
+            };
+
+            dc.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleSyncData(data, dc);
+                } catch(e) {}
+            };
+        }
+
+        function handleSyncData(data, fromDc) {
+            if (!data || !data.type) return;
+
+            if (data.type === 'init' && data.zones) {
+                zones = data.zones;
+                migrateZoneData();
+                localStorage.setItem('perlerZones', JSON.stringify(zones));
+                render();
+                showSyncNotification('已同步主机数据');
+            } else if (data.type === 'update' && data.zones) {
+                zones = data.zones;
+                migrateZoneData();
+                localStorage.setItem('perlerZones', JSON.stringify(zones));
+                render();
+            } else if (data.type === 'ping') {
+                fromDc.send(JSON.stringify({ type: 'pong', from: myDeviceId }));
+            }
+        }
+
+        function showSyncNotification(text) {
+            const notif = document.getElementById('notification');
+            const title = notif.querySelector('.notification-title');
+            const msg = document.getElementById('notificationText');
+            title.textContent = '📡 数据同步';
+            title.style.color = '#2b8a3e';
+            notif.style.borderLeftColor = '#51cf66';
+            msg.textContent = text;
+            notif.classList.add('show');
+            setTimeout(() => {
+                notif.classList.remove('show');
+                title.textContent = '⏰ 超时提醒';
+                title.style.color = '#c92a2a';
+                notif.style.borderLeftColor = '#ff6b6b';
+            }, 3000);
+        }
+
+        async function startWebRTC() {
+            if (!window.RTCPeerConnection) {
+                alert('当前浏览器不支持 WebRTC，请使用 Chrome/Edge/Firefox 最新版');
+                return;
+            }
+            webRTCMode = 'host';
+            isWebRTCActive = true;
+            updateWebRTCStatus('connecting', '正在创建同步房间...');
+
+            const { pc, dc } = createPeerConnection();
+            rtcConnections.push(pc);
+
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+
+            document.getElementById('webrtcControls').style.display = 'none';
+            document.getElementById('webrtcQRArea').style.display = 'block';
+            document.getElementById('webrtcQRDesc').textContent = '请用另一台设备扫描下方二维码，或复制同步码粘贴到"加入同步房间"中';
+
+            // 定期广播当前状态给所有连接
+            startAutoBroadcast();
+        }
+
+        async function joinWebRTC() {
+            if (!window.RTCPeerConnection) {
+                alert('当前浏览器不支持 WebRTC');
+                return;
+            }
+            const code = prompt('请输入主机生成的同步码（或扫描主机二维码获取）：');
+            if (!code) return;
+
+            try {
+                const parsed = JSON.parse(LZString.decompressFromEncodedURIComponent(code));
+                if (parsed.type !== 'offer') {
+                    alert('无效的同步码，请使用主机生成的同步码');
+                    return;
+                }
+
+                webRTCMode = 'client';
+                isWebRTCActive = true;
+                updateWebRTCStatus('connecting', '正在连接到主机...');
+
+                const pc = new RTCPeerConnection({
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                });
+                rtcConnections.push(pc);
+
+                pc.ondatachannel = (event) => {
+                    setupDataChannel(event.channel, pc);
+                };
+
+                await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: parsed.sdp }));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+
+                // 等待 ICE 完成
+                await new Promise((resolve) => {
+                    const check = setInterval(() => {
+                        if (pc.iceGatheringState === 'complete') {
+                            clearInterval(check);
+                            resolve();
+                        }
+                    }, 200);
+                    setTimeout(() => { clearInterval(check); resolve(); }, 3000);
+                });
+
+                const answerCode = LZString.compressToEncodedURIComponent(JSON.stringify({
+                    type: 'answer',
+                    sdp: pc.localDescription.sdp,
+                    deviceId: myDeviceId
+                }));
+
+                alert('连接已建立！请将以下应答码展示给主机扫描，或主机已自动连接。\n\n（如果主机未自动连接，请手动复制此应答码到主机）');
+
+                document.getElementById('webrtcControls').style.display = 'none';
+                document.getElementById('webrtcQRArea').style.display = 'block';
+                document.getElementById('webrtcQRDesc').textContent = '连接已建立！如果主机要求，请提供以下应答码';
+                document.getElementById('webrtcCode').value = answerCode;
+                generateQRFromCode(answerCode);
+
+                startAutoBroadcast();
+
+            } catch(e) {
+                alert('连接失败：' + e.message);
+                updateWebRTCStatus('disconnected');
+            }
+        }
+
+        // 主机接收客户端应答
+        async function applyAnswerCode(code) {
+            try {
+                const parsed = JSON.parse(LZString.decompressFromEncodedURIComponent(code));
+                if (parsed.type !== 'answer') return;
+
+                const pc = rtcConnections[rtcConnections.length - 1];
+                if (!pc) return;
+
+                await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: parsed.sdp }));
+                updateWebRTCStatus('connected', '客户端已连接，自动同步中');
+                updatePeersList();
+            } catch(e) {
+                console.error('应用应答码失败:', e);
+            }
+        }
+
+        function generateQRFromCode(code) {
+            const qrContainer = document.getElementById('qrcode');
+            qrContainer.innerHTML = '';
+            try {
+                new QRCode(qrContainer, {
+                    text: code,
+                    width: 180,
+                    height: 180,
+                    colorDark: '#495057',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.M
+                });
+            } catch(e) {
+                qrContainer.innerHTML = '<p style="color:#c92a2a; font-size:14px;">二维码生成失败，请直接复制同步码</p>';
+            }
+        }
+
+        function copyWebRTCCode() {
+            const el = document.getElementById('webrtcCode');
+            el.select();
+            document.execCommand('copy');
+            alert('同步码已复制！');
+        }
+
+        function startAutoBroadcast() {
+            // 每 3 秒广播一次完整数据，确保所有设备一致
+            setInterval(() => {
+                if (isWebRTCActive && rtcDataChannels.some(dc => dc.readyState === 'open')) {
+                    broadcastToPeers({ type: 'update', zones: zones, from: myDeviceId, ts: Date.now() });
+                }
+            }, 3000);
+
+            // 同时监听数据变化，立即广播
+            const originalSave = saveData;
+            saveData = function() {
+                originalSave();
+                if (isWebRTCActive) {
+                    broadcastToPeers({ type: 'update', zones: zones, from: myDeviceId, ts: Date.now() });
+                }
+            };
+        }
+
+        function toggleAutoSync() {
+            const btn = document.getElementById('syncBtn');
+            if (isWebRTCActive) {
+                // 关闭同步
+                isWebRTCActive = false;
+                rtcConnections.forEach(pc => pc.close());
+                rtcConnections = [];
+                rtcDataChannels = [];
+                btn.classList.remove('active');
+                btn.innerHTML = '📡 开启自动同步';
+                updateWebRTCStatus('disconnected');
+                updatePeersList();
+                showSyncNotification('已关闭自动同步');
             } else {
-                cost = calculateTimeCost(cumulative, pricing);
-                if (seat.extraTime > 0) cost += calculateTimeCost(seat.extraTime, pricing);
+                openSyncModal();
             }
-            return Math.round(cost * 100) / 100;
-        }
-
-        function calculateCostFromSnapshot(s, pricing) {
-            if (!pricing) pricing = getPricing();
-            if (pricing.hourly <= 0 && pricing.allDay <= 0) return 0;
-            if (s.status === 'idle') return 0;
-            
-            let cost = 0;
-            if (s.isAllDay) {
-                cost = pricing.allDay;
-                if (s.extraTime > 0) cost += calculateTimeCost(s.extraTime, pricing);
-            } else {
-                cost = calculateTimeCost(s.cumulative || 0, pricing);
-                if (s.extraTime > 0) cost += calculateTimeCost(s.extraTime, pricing);
-            }
-            return Math.round(cost * 100) / 100;
-        }
-
-        function openPricingModal() {
-            const pricing = getPricing();
-            document.getElementById('hourlyRate').value = pricing.hourly || '';
-            document.getElementById('allDayRate').value = pricing.allDay || '';
-            currentPrecision = pricing.precision || 'hour';
-            updatePrecisionButtons();
-            document.getElementById('pricingModalOverlay').classList.add('show');
-        }
-
-        function closePricingModal(event) {
-            if (event && event.target !== document.getElementById('pricingModalOverlay')) return;
-            document.getElementById('pricingModalOverlay').classList.remove('show');
-        }
-
-        function setPrecision(precision, btn) {
-            currentPrecision = precision;
-            updatePrecisionButtons();
-        }
-
-        function updatePrecisionButtons() {
-            document.querySelectorAll('#pricingModalOverlay .preset-btn').forEach(b => b.classList.remove('selected'));
-            const map = { 'hour': 'prec-hour', 'halfHour': 'prec-half', 'actual': 'prec-actual' };
-            const id = map[currentPrecision];
-            if (id) document.getElementById(id).classList.add('selected');
-        }
-
-        function savePricing() {
-            const hourly = parseFloat(document.getElementById('hourlyRate').value) || 0;
-            const allDay = parseFloat(document.getElementById('allDayRate').value) || 0;
-            const pricing = { hourly, allDay, precision: currentPrecision };
-            localStorage.setItem('perlerPricing', JSON.stringify(pricing));
-            closePricingModal();
-            render();
-            alert('价格设置已保存！');
-        }
-
-        // ==================== CSV 转义 ====================
-        function escapeCSV(field) {
-            const str = String(field ?? '');
-            if (/[",\n\r]/.test(str)) {
-                return `"${str.replace(/"/g, '""')}"`;
-            }
-            return str;
         }
 
         // ==================== IndexedDB 初始化 ====================
@@ -931,6 +1305,139 @@
             });
         }
 
+        // ==================== BroadcastChannel 同设备同步 ====================
+        function setupBroadcastChannel() {
+            const statusEl = document.getElementById('broadcastStatus');
+            if ('BroadcastChannel' in window) {
+                bc = new BroadcastChannel('handcraft_timer_sync_v2');
+                bc.onmessage = (event) => {
+                    if (event.data && event.data.type === 'full_sync' && Array.isArray(event.data.zones)) {
+                        if (JSON.stringify(event.data.zones) !== JSON.stringify(zones)) {
+                            zones = event.data.zones;
+                            migrateZoneData();
+                            localStorage.setItem('perlerZones', JSON.stringify(zones));
+                            render();
+                        }
+                    }
+                };
+                if (statusEl) {
+                    statusEl.textContent = '状态：已启用（同设备多标签页实时同步）';
+                    statusEl.className = 'sync-status';
+                }
+            } else {
+                if (statusEl) {
+                    statusEl.textContent = '状态：当前浏览器不支持（请使用 Chrome/Edge/Safari）';
+                    statusEl.className = 'sync-status warning';
+                }
+            }
+        }
+
+        // ==================== 同步码功能 ====================
+        function generateSyncCode() {
+            const payload = JSON.stringify(zones);
+            return LZString.compressToEncodedURIComponent(payload);
+        }
+
+        function applySyncCode(code) {
+            try {
+                const json = LZString.decompressFromEncodedURIComponent(code);
+                if (!json) throw new Error('同步码解压失败，可能已损坏');
+                const data = JSON.parse(json);
+                if (!Array.isArray(data)) throw new Error('数据格式不正确');
+                zones = data;
+                migrateZoneData();
+                localStorage.setItem('perlerZones', JSON.stringify(zones));
+                render();
+                return true;
+            } catch(e) {
+                alert('❌ 同步码无效：' + e.message);
+                return false;
+            }
+        }
+
+        function openSyncModal() {
+            const code = generateSyncCode();
+            document.getElementById('syncCodeDisplay').value = code;
+            document.getElementById('syncModalOverlay').classList.add('show');
+
+            // 如果已经开启 WebRTC，更新状态
+            if (isWebRTCActive) {
+                updatePeersList();
+            }
+        }
+
+        function closeSyncModal(event) {
+            if (event && event.target !== document.getElementById('syncModalOverlay')) return;
+            document.getElementById('syncModalOverlay').classList.remove('show');
+            document.getElementById('qrcode').innerHTML = '';
+            // 重置 WebRTC UI
+            if (!isWebRTCActive) {
+                document.getElementById('webrtcControls').style.display = 'block';
+                document.getElementById('webrtcQRArea').style.display = 'none';
+            }
+        }
+
+        function copySyncCode() {
+            const el = document.getElementById('syncCodeDisplay');
+            el.select();
+            document.execCommand('copy');
+            alert('✅ 同步码已复制到剪贴板！');
+        }
+
+        function generateSyncQR() {
+            const code = generateSyncCode();
+            document.getElementById('syncCodeDisplay').value = code;
+            generateQRFromCode(code);
+        }
+
+        function applySyncCodeFromInput() {
+            const code = document.getElementById('syncCodeInput').value.trim();
+            if (!code) { alert('请输入同步码'); return; }
+            if (applySyncCode(code)) {
+                closeSyncModal();
+                alert('✅ 数据同步成功！');
+            }
+        }
+
+        function exportFullData() {
+            const data = {
+                version: 2,
+                exportTime: Date.now(),
+                zones: zones
+            };
+            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `好想玩手工创作_备份_${formatDateCN(Date.now())}_${formatTimeHM(Date.now()).replace(':','-')}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importFullData(file) {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.zones && Array.isArray(data.zones)) {
+                        zones = data.zones;
+                    } else if (Array.isArray(data)) {
+                        zones = data;
+                    } else {
+                        throw new Error('文件格式不正确');
+                    }
+                    migrateZoneData();
+                    localStorage.setItem('perlerZones', JSON.stringify(zones));
+                    render();
+                    alert('✅ 数据导入成功！');
+                } catch(err) {
+                    alert('❌ 导入失败：' + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
         // ==================== 自动保存逻辑 ====================
         async function autoSaveRecord() {
             const now = Date.now();
@@ -938,7 +1445,6 @@
                 timestamp: now,
                 dateStr: formatDateCN(now),
                 timeStr: formatTimeHM(now),
-                pricing: getPricing(),
                 zones: zones.map(z => ({
                     zoneName: z.name,
                     seats: z.seats.map(s => ({
@@ -969,11 +1475,13 @@
             }
 
             localStorage.setItem('perlerZones', JSON.stringify(zones));
+            if (bc) {
+                bc.postMessage({ type: 'full_sync', zones: zones });
+            }
         }
 
         async function writeRecordToDirectory(record) {
             if (!saveDirectoryHandle) return;
-
             const folderName = record.dateStr;
             let dateDirHandle;
             try {
@@ -981,7 +1489,6 @@
             } catch (e) {
                 throw e;
             }
-
             const fileName = `${record.timeStr.replace(':', '-')}.json`;
             const fileHandle = await dateDirHandle.getFileHandle(fileName, { create: true });
             const writable = await fileHandle.createWritable();
@@ -994,31 +1501,24 @@
             const existing = await file.text();
             const csvLine = generateCSVLine(record);
             const csvWritable = await csvHandle.createWritable();
-            if (!existing || existing.length === 0) {
-                await csvWritable.write('\ufeff' + csvLine);
-            } else {
-                await csvWritable.write(existing + '\n' + csvLine);
-            }
+            await csvWritable.write(existing ? existing + '\n' + csvLine : csvLine);
             await csvWritable.close();
         }
 
         function generateCSVLine(record) {
             const lines = [];
-            const pricing = record.pricing || getPricing();
             record.zones.forEach(z => {
                 z.seats.forEach(s => {
-                    const cost = calculateCostFromSnapshot(s, pricing);
                     lines.push([
-                        escapeCSV(record.dateStr),
-                        escapeCSV(record.timeStr),
-                        escapeCSV(z.zoneName),
-                        escapeCSV(s.number),
-                        escapeCSV(s.status === 'active' && s.isAllDay ? '全天' : (s.status === 'overtime' ? '超时' : s.status)),
-                        escapeCSV(s.isAllDay ? '是' : '否'),
-                        escapeCSV(formatFullTime(s.cumulative || 0)),
-                        escapeCSV(formatFullTime(s.extraTime || 0)),
-                        escapeCSV(formatFullTime(s.overtimeDuration || 0)),
-                        escapeCSV(cost.toFixed(2))
+                        record.dateStr,
+                        record.timeStr,
+                        z.zoneName,
+                        s.number,
+                        s.status,
+                        s.isAllDay ? '是' : '否',
+                        formatFullTime(s.cumulative),
+                        formatFullTime(s.extraTime),
+                        formatFullTime(s.overtimeDuration)
                     ].join(','));
                 });
             });
@@ -1027,25 +1527,23 @@
 
         // ==================== 导出功能 ====================
         function generateCurrentStatsCSV() {
-            const headers = ['分区', '座位号', '状态', '累计时长', '加时时长', '超时时长', '费用(元)', '备注'];
+            const headers = ['分区', '座位号', '状态', '累计时长', '加时时长', '超时时长', '备注'];
             const rows = [];
             zones.forEach(z => {
                 z.seats.forEach(s => {
                     const cumulative = getDisplayCumulative(s);
-                    const cost = calculateCost(s);
                     let remark = '';
                     if (s.status === 'active' && s.isAllDay) remark = '全天模式';
                     else if (s.status === 'overtime') remark = '已超时';
                     else if (isOvertimePaused(s)) remark = '超时暂停';
                     rows.push([
-                        escapeCSV(z.name),
-                        escapeCSV(s.number),
-                        escapeCSV(s.status === 'active' && s.isAllDay ? '全天' : (s.status === 'overtime' ? '超时' : s.status)),
-                        escapeCSV(formatFullTime(cumulative)),
-                        escapeCSV(formatFullTime(s.extraTime || 0)),
-                        escapeCSV(formatFullTime(s.overtimeDuration || 0)),
-                        escapeCSV(cost.toFixed(2)),
-                        escapeCSV(remark)
+                        z.name,
+                        s.number,
+                        s.status === 'active' && s.isAllDay ? '全天' : (s.status === 'overtime' ? '超时' : s.status),
+                        formatFullTime(cumulative),
+                        formatFullTime(s.extraTime || 0),
+                        formatFullTime(s.overtimeDuration || 0),
+                        remark
                     ].join(','));
                 });
             });
@@ -1070,12 +1568,10 @@
                 alert('近三天暂无历史记录');
                 return;
             }
-
-            let allCSV = '日期,时间,分区,座位号,状态,全天,累计时长,加时时长,超时时长,费用(元)\n';
+            let allCSV = '日期,时间,分区,座位号,状态,全天,累计时长,加时时长,超时时长\n';
             records.forEach(r => {
                 allCSV += generateCSVLine(r) + '\n';
             });
-
             const blob = new Blob(['\ufeff' + allCSV], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -1088,7 +1584,7 @@
         // ==================== 本地目录设置 ====================
         async function setupSaveDirectory() {
             if (!('showDirectoryPicker' in window)) {
-                alert('你的浏览器不支持本地目录保存功能。请使用 Chrome/Edge 浏览器，或通过"导出"按钮手动下载文件。');
+                alert('你的浏览器不支持本地目录保存功能。请使用 Chrome/Edge 浏览器。');
                 return;
             }
             try {
@@ -1136,14 +1632,16 @@
             return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
         }
 
-        // ==================== 初始化 ====================
-        function init() {
-            if (zones.length === 0) {
-                addZone('A区');
-                addZone('B区');
-            }
-            zones.forEach(z => {
+        // ==================== 数据迁移 ====================
+        function migrateZoneData() {
+            zones.forEach((z, idx) => {
+                if (z.colorIndex === undefined) z.colorIndex = idx % ZONE_COLORS.length;
+                if (z.nextSeatNumber === undefined) {
+                    z.nextSeatNumber = z.seats.length > 0 ? Math.max(...z.seats.map(s => s.number || 0)) + 1 : 1;
+                }
                 z.seats.forEach(s => {
+                    if (s.number === undefined) s.number = (z.seats.indexOf(s) + 1);
+                    if (s.id === undefined) s.id = z.id + '-' + s.number;
                     if (s.extraTime === undefined) s.extraTime = 0;
                     if (s.isAllDay === undefined) s.isAllDay = false;
                     if (s.overtimeStart === undefined) s.overtimeStart = null;
@@ -1151,19 +1649,32 @@
                     if (s.totalElapsed === undefined) s.totalElapsed = 0;
                 });
             });
+        }
+
+        // ==================== 原有计时逻辑 ====================
+        function init() {
+            if (zones.length === 0) {
+                addZone('A区');
+                addZone('B区');
+            }
+            migrateZoneData();
             initDB().then(() => {
                 render();
                 setInterval(updateTimers, 1000);
                 setInterval(autoSaveRecord, 10 * 60 * 1000);
                 setTimeout(autoSaveRecord, 3000);
+                setupBroadcastChannel();
             });
         }
 
         function addZone(name = null) {
             const zoneId = Date.now() + Math.random();
+            const colorIndex = zones.length % ZONE_COLORS.length;
             zones.push({
                 id: zoneId,
                 name: name || `新分区`,
+                colorIndex: colorIndex,
+                nextSeatNumber: 1,
                 seats: []
             });
             saveData();
@@ -1181,7 +1692,7 @@
         function addSeat(zoneId) {
             const zone = zones.find(z => z.id === zoneId);
             if (zone) {
-                const newNum = zone.seats.length + 1;
+                const newNum = zone.nextSeatNumber++;
                 zone.seats.push({
                     id: zoneId + '-' + newNum,
                     number: newNum,
@@ -1209,23 +1720,17 @@
                 alert('每个分区至少需要保留一个座位');
                 return;
             }
-            if (!confirm('确定删除这个座位吗？')) return;
+            if (!confirm('确定删除这个座位吗？该座位位置将保留为空位，后续新座位将继续向后编号。')) return;
             zone.seats = zone.seats.filter(s => s.id !== seatId);
-            zone.seats.forEach((s, idx) => { s.number = idx + 1; });
             saveData();
             render();
         }
 
         function deleteCurrentSeat() {
             if (!currentModalSeat) return;
-            const {zoneId, seatId, zone} = currentModalSeat;
+            const {zoneId, seatId} = currentModalSeat;
             removeSeat(zoneId, seatId);
             closeModal();
-        }
-
-        // 座号依次排列，不再翻转
-        function getDisplaySeats(seats) {
-            return seats;
         }
 
         function isOvertimePaused(seat) {
@@ -1244,7 +1749,7 @@
             currentModalSeat = {zoneId, seatId, zone, seat};
 
             document.getElementById('modalTitle').textContent = `${zone.name} - ${seat.number}号座位`;
-            
+
             const timeSelection = document.getElementById('timeSelection');
             const timerDisplay = document.getElementById('timerDisplay');
             const mainBtn = document.getElementById('mainActionBtn');
@@ -1253,7 +1758,6 @@
             const primaryCard = document.getElementById('primaryCard');
             const extraSection = document.getElementById('extraTimeSection');
             const extraPanel = document.getElementById('extraTimePanel');
-            const costCard = document.getElementById('costCard');
 
             extraPanel.classList.remove('show');
             document.getElementById('extraCustomMinutes').value = '';
@@ -1268,7 +1772,6 @@
                 endBtn.style.display = 'none';
                 deleteBtn.style.display = 'inline-flex';
                 extraSection.style.display = 'none';
-                costCard.style.display = 'none';
                 mainBtn.className = 'main-action-btn btn-start';
                 mainBtn.innerHTML = '▶️ 开始计时';
                 document.getElementById('modalSubtitle').textContent = '选择计时方式';
@@ -1278,10 +1781,9 @@
                 endBtn.style.display = 'inline-flex';
                 deleteBtn.style.display = 'none';
                 extraSection.style.display = 'block';
-                costCard.style.display = 'block';
-                
+
                 updateModalTimerDisplay();
-                
+
                 if (seat.status === 'active') {
                     if (seat.isAllDay) {
                         mainBtn.className = 'main-action-btn btn-pause';
@@ -1338,16 +1840,16 @@
         function addExtraTime(minutes) {
             if (!currentModalSeat) return;
             const {zoneId, seatId, seat} = currentModalSeat;
-            
+
             if (seat.status === 'idle') return;
-            
+
             const extraSeconds = minutes * 60;
             seat.extraTime += extraSeconds;
-            
+
             if (!seat.isAllDay && seat.endTime) {
                 seat.endTime += minutes * 60 * 1000;
             }
-            
+
             saveData();
             render();
             openModal(zoneId, seatId);
@@ -1394,11 +1896,11 @@
                     seat.duration = minutes * 60;
                     seat.status = 'active';
                 }
-                
+
                 closeModal();
                 saveData();
                 render();
-                
+
             } else if (seat.status === 'active' || seat.status === 'overtime') {
                 seat.pausedAt = Date.now();
                 if (seat.lastStartTime) {
@@ -1409,11 +1911,11 @@
                 saveData();
                 openModal(zoneId, seatId);
                 render();
-                
+
             } else if (seat.status === 'paused') {
                 const now = Date.now();
                 seat.lastStartTime = now;
-                
+
                 if (!seat.isAllDay && seat.endTime) {
                     const pausedDuration = now - seat.pausedAt;
                     seat.endTime += pausedDuration;
@@ -1422,7 +1924,7 @@
                     const pausedDuration = now - seat.pausedAt;
                     seat.overtimeStart += pausedDuration;
                 }
-                
+
                 if (seat.overtimeStart) {
                     seat.status = 'overtime';
                 } else if (seat.isAllDay) {
@@ -1431,7 +1933,7 @@
                     seat.status = (seat.endTime && now >= seat.endTime) ? 'overtime' : 'active';
                 }
                 seat.pausedAt = null;
-                
+
                 saveData();
                 openModal(zoneId, seatId);
                 render();
@@ -1471,8 +1973,6 @@
             const cumulativeValue = document.getElementById('cumulativeValue');
             const extraCard = document.getElementById('extraCard');
             const extraValue = document.getElementById('extraValue');
-            const costCard = document.getElementById('costCard');
-            const costValue = document.getElementById('costValue');
 
             let cumulative = seat.totalElapsed || 0;
             if ((seat.status === 'active' || seat.status === 'overtime') && seat.lastStartTime) {
@@ -1514,14 +2014,6 @@
             } else {
                 extraCard.style.display = 'none';
             }
-
-            if (seat.status !== 'idle') {
-                const cost = calculateCost(seat);
-                costCard.style.display = 'block';
-                costValue.textContent = `¥${cost.toFixed(2)}`;
-            } else {
-                costCard.style.display = 'none';
-            }
         }
 
         function updateTimers() {
@@ -1535,7 +2027,7 @@
                         if (remaining <= 0) {
                             const elapsed = Math.floor((seat.endTime - seat.lastStartTime) / 1000);
                             seat.totalElapsed += elapsed;
-                            
+
                             seat.status = 'overtime';
                             seat.overtimeStart = Date.now();
                             seat.lastStartTime = Date.now();
@@ -1570,33 +2062,28 @@
 
         function updateTimerDisplay() {
             zones.forEach(zone => {
-                const displaySeats = getDisplaySeats(zone.seats);
-                displaySeats.forEach(seat => {
+                zone.seats.forEach(seat => {
                     const el = document.getElementById(`timer-${seat.id}`);
                     const cumEl = document.getElementById(`cumulative-${seat.id}`);
                     const extraEl = document.getElementById(`extra-${seat.id}`);
                     const statusEl = document.getElementById(`status-${seat.id}`);
                     const card = document.getElementById(`seat-${seat.id}`);
-                    const costEl = document.getElementById(`cost-${seat.id}`);
                     if (!el || !card) return;
 
                     card.className = `seat-card ${getSeatCardClass(seat)}`;
 
                     const cumulative = getDisplayCumulative(seat);
-                    const cost = calculateCost(seat);
 
                     if (seat.status === 'idle') {
                         el.textContent = '--:--';
                         cumEl.textContent = '累计: 00:00:00';
                         if (extraEl) extraEl.textContent = '';
-                        if (costEl) costEl.textContent = '';
                         statusEl.textContent = '空闲';
                     } else if (seat.status === 'active') {
                         if (seat.isAllDay) {
                             el.textContent = '全天';
                             cumEl.textContent = '累计: ' + formatFullTime(cumulative);
                             if (extraEl) extraEl.textContent = seat.extraTime > 0 ? '加时: ' + formatFullTime(seat.extraTime) : '';
-                            if (costEl) costEl.textContent = `¥${cost.toFixed(2)}`;
                             statusEl.textContent = '全天';
                         } else {
                             const remaining = Math.ceil((seat.endTime - Date.now()) / 1000);
@@ -1604,7 +2091,6 @@
                                 el.textContent = formatTime(remaining);
                                 cumEl.textContent = '累计: ' + formatFullTime(cumulative);
                                 if (extraEl) extraEl.textContent = seat.extraTime > 0 ? '加时: ' + formatFullTime(seat.extraTime) : '';
-                                if (costEl) costEl.textContent = `¥${cost.toFixed(2)}`;
                                 statusEl.textContent = '进行中';
                             }
                         }
@@ -1613,28 +2099,24 @@
                             el.textContent = '全天';
                             cumEl.textContent = '累计: ' + formatFullTime(cumulative);
                             if (extraEl) extraEl.textContent = seat.extraTime > 0 ? '加时: ' + formatFullTime(seat.extraTime) : '';
-                            if (costEl) costEl.textContent = `¥${cost.toFixed(2)}`;
                             statusEl.textContent = '已暂停';
                         } else if (isOvertimePaused(seat)) {
                             const overtimeAtPause = Math.floor((seat.pausedAt - seat.overtimeStart) / 1000);
                             el.textContent = '超时：' + formatTime(overtimeAtPause);
                             cumEl.textContent = '累计: ' + formatFullTime(cumulative);
                             if (extraEl) extraEl.textContent = seat.extraTime > 0 ? '加时: ' + formatFullTime(seat.extraTime) : '';
-                            if (costEl) costEl.textContent = `¥${cost.toFixed(2)}`;
                             statusEl.textContent = '已暂停';
                         } else {
                             const remaining = Math.ceil((seat.endTime - seat.pausedAt) / 1000);
                             el.textContent = formatTime(remaining);
                             cumEl.textContent = '累计: ' + formatFullTime(cumulative);
                             if (extraEl) extraEl.textContent = seat.extraTime > 0 ? '加时: ' + formatFullTime(seat.extraTime) : '';
-                            if (costEl) costEl.textContent = `¥${cost.toFixed(2)}`;
                             statusEl.textContent = '已暂停';
                         }
                     } else if (seat.status === 'overtime') {
                         el.textContent = '超时：' + formatTime(seat.overtimeDuration);
                         cumEl.textContent = '累计: ' + formatFullTime(cumulative);
                         if (extraEl) extraEl.textContent = seat.extraTime > 0 ? '加时: ' + formatFullTime(seat.extraTime) : '';
-                        if (costEl) costEl.textContent = `¥${cost.toFixed(2)}`;
                         statusEl.textContent = '已超时';
                     }
                 });
@@ -1685,13 +2167,51 @@
                 return;
             }
 
-            container.innerHTML = zones.map((zone, zoneIndex) => {
-                const color = getZoneColor(zoneIndex);
-                const displaySeats = getDisplaySeats(zone.seats);
+            container.innerHTML = zones.map(zone => {
+                const color = ZONE_COLORS[zone.colorIndex % ZONE_COLORS.length];
+                let seatsHtml = '';
+
+                if (zone.seats.length === 0) {
+                    seatsHtml = `<div class="empty-seats">
+                        <p>暂无座位，点击"添加座位"按钮添加</p>
+                    </div>`;
+                } else {
+                    const maxNum = Math.max(...zone.seats.map(s => s.number));
+                    const totalSlots = Math.ceil(maxNum / 8) * 8;
+                    const slots = new Array(totalSlots).fill(null);
+                    zone.seats.forEach(s => {
+                        if (s.number >= 1 && s.number <= totalSlots) {
+                            slots[s.number - 1] = s;
+                        }
+                    });
+
+                    seatsHtml = `
+                    <div class="seats-grid">
+                        ${slots.map((seat, idx) => {
+                            if (!seat) {
+                                return `<div class="seat-card seat-placeholder"></div>`;
+                            }
+                            return `
+                            <div class="seat-card ${getSeatCardClass(seat)}" 
+                                 id="seat-${seat.id}"
+                                 onclick="openModal(${zone.id}, '${seat.id}')">
+                                <div class="seat-number">${zone.name} - ${seat.number}号</div>
+                                <div class="seat-timer" id="timer-${seat.id}">--:--</div>
+                                <div class="seat-cumulative" id="cumulative-${seat.id}">累计: 00:00:00</div>
+                                <div class="seat-extra" id="extra-${seat.id}"></div>
+                                <div class="seat-status" id="status-${seat.id}">空闲</div>
+                            </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    `;
+                }
+
                 return `
-                <div class="zone-card" style="--zone-color: ${color.primary}">
+                <div class="zone-card" style="--zone-color: ${color.primary}; --zone-color-light: ${color.light};">
                     <div class="zone-header">
                         <div class="zone-title">
+                            <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${color.primary};margin-right:6px;"></span>
                             <input type="text" value="${zone.name}" 
                                 onchange="renameZone(${zone.id}, this.value)"
                                 onblur="renameZone(${zone.id}, this.value)">
@@ -1701,28 +2221,10 @@
                             <button class="btn btn-danger" onclick="event.stopPropagation(); removeZone(${zone.id})">🗑️ 删分区</button>
                         </div>
                     </div>
-                    ${zone.seats.length === 0 ? `
-                        <div class="empty-seats">
-                            <p>暂无座位，点击"添加座位"按钮添加</p>
-                        </div>
-                    ` : `
-                    <div class="seats-grid">
-                        ${displaySeats.map(seat => `
-                            <div class="seat-card ${getSeatCardClass(seat)}" 
-                                 id="seat-${seat.id}"
-                                 onclick="openModal(${zone.id}, '${seat.id}')">
-                                <div class="seat-number">${zone.name} - ${seat.number}号</div>
-                                <div class="seat-timer" id="timer-${seat.id}">--:--</div>
-                                <div class="seat-cumulative" id="cumulative-${seat.id}">累计: 00:00:00</div>
-                                <div class="seat-extra" id="extra-${seat.id}"></div>
-                                <div class="seat-cost" id="cost-${seat.id}"></div>
-                                <div class="seat-status" id="status-${seat.id}">空闲</div>
-                            </div>
-                        `).join('')}
-                    </div>
-                    `}
+                    ${seatsHtml}
                 </div>
-            `}).join('');
+                `;
+            }).join('');
 
             updateTimerDisplay();
             updateStats();
@@ -1735,6 +2237,12 @@
 
         function saveData() {
             localStorage.setItem('perlerZones', JSON.stringify(zones));
+            if (bc) {
+                bc.postMessage({ type: 'full_sync', zones: zones });
+            }
+            if (isWebRTCActive) {
+                broadcastToPeers({ type: 'update', zones: zones, from: myDeviceId, ts: Date.now() });
+            }
         }
 
         function clearAll() {
@@ -1795,7 +2303,7 @@
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 closeModal();
-                closePricingModal();
+                closeSyncModal();
             }
         });
 
